@@ -318,6 +318,26 @@ function CaseRow({ c, hidden }) {
   );
 }
 
+const ALL_BUCKETS_ORDER = [
+  "Murder & Attempted Murder",
+  "Crime Against Women",
+  "Special/Security Law",
+  "Robbery & Dacoity",
+  "Kidnapping & Abduction",
+  "Hurt & Assault",
+  "Arson & Property Destruction",
+  "House-trespass / Burglary",
+  "Wrongful Restraint / Confinement",
+  "Unlawful Assembly & Rioting",
+  "Contempt of Public Authority",
+  "Criminal Intimidation & Threats",
+  "Promoting Enmity / Hate Speech",
+  "Corruption & Bribery",
+  "Forgery & Cheating",
+  "Defamation",
+  "Not determinable",
+];
+
 function CandidateCard({ candidate }) {
   const [expanded, setExpanded] = useState(true);
   const [activeBucket, setActiveBucket] = useState(null);
