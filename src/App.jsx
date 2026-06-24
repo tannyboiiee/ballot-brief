@@ -683,7 +683,7 @@ export default function BallotBrief() {
             <button onClick={goHome} className="flex items-center gap-1.5 text-sm mb-6" style={{ color: "#a8a092" }}>
               <ArrowLeft size={14} /> Back
             </button>
-            <div className="grid md:grid-cols-1 max-w-md">
+            <div>
               <CandidateCard candidate={selectedCandidate} />
             </div>
           </div>
