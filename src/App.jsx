@@ -47,6 +47,26 @@ const IPC_REF = {
   452: { label: "House-trespass after preparation to hurt", chapter: "Offences Against Property", bailable: false, years: 7, verified: false },
   457: { label: "House-breaking by night", chapter: "Offences Against Property", bailable: false, years: 14, verified: false },
   120: { label: "Criminal conspiracy", chapter: "Criminal Conspiracy", bailable: true, years: 0.5, verified: true, modifier: true, code: "120B" },
+  225: { label: "Resistance to lawful apprehension of another", chapter: "False Evidence & Public Justice", bailable: true, years: 2, verified: false },
+  295: { label: "Injuring or defiling a place of worship", chapter: "Offences Relating to Religion", bailable: false, years: 2, verified: false },
+  "295A": { label: "Deliberate acts to outrage religious feelings", chapter: "Offences Relating to Religion", bailable: false, years: 3, verified: false },
+  302: { label: "Murder", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
+  325: { label: "Causing grievous hurt", chapter: "Offences Against the Body", bailable: true, years: 7, verified: false },
+  359: { label: "Kidnapping", chapter: "Offences Against the Body", bailable: false, years: 7, verified: false },
+  366: { label: "Kidnapping/abducting a woman to compel marriage", chapter: "Offences Against the Body", bailable: false, years: 10, verified: false },
+  375: { label: "Rape", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
+  376: { label: "Punishment for rape", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
+  390: { label: "Robbery", chapter: "Offences Against Property", bailable: false, years: 10, verified: false },
+  420: { label: "Cheating and dishonestly inducing delivery of property", chapter: "Offences Against Property", bailable: true, years: 7, verified: false },
+  468: { label: "Forgery for the purpose of cheating", chapter: "Offences Against Property", bailable: false, years: 7, verified: false },
+  499: { label: "Defamation", chapter: "Defamation", bailable: true, years: 2, verified: false },
+  500: { label: "Punishment for defamation", chapter: "Defamation", bailable: true, years: 2, verified: false },
+  "498A": { label: "Cruelty by husband or relatives", chapter: "Offences Against the Body", bailable: false, years: 3, verified: false },
+  503: { label: "Criminal intimidation", chapter: "Criminal Intimidation & Insult", bailable: true, years: 2, verified: false },
+  504: { label: "Intentional insult to provoke breach of the peace", chapter: "Criminal Intimidation & Insult", bailable: true, years: 2, verified: false },
+  505: { label: "Statements creating or promoting enmity", chapter: "Public Tranquility", bailable: false, years: 3, verified: false },
+  506: { label: "Punishment for criminal intimidation", chapter: "Criminal Intimidation & Insult", bailable: true, years: 2, verified: false },
+  509: { label: "Word, gesture, or act intended to insult a woman's modesty", chapter: "Criminal Intimidation & Insult", bailable: true, years: 3, verified: false },
   34: { label: "Common intention liability", chapter: "General Exceptions", bailable: true, years: 0, verified: false, modifier: true },
   511: { label: "Attempting an offence", chapter: "General Exceptions", bailable: true, years: 0, verified: false, modifier: true },
 };
@@ -54,6 +74,50 @@ const IPC_REF = {
 const MODIFIER_CODES = new Set(["149", "34", "120B", "511"]);
 
 const UAPA_SECTIONS = new Set(["10", "13", "17", "18", "18B", "40"]);
+
+// ---------------------------------------------------------------------------
+// Offense-type buckets — a second, independent axis from severity tier.
+// Each bucket is a fixed list of IPC sections, not an invented judgment call.
+// "Crime Against Women" further splits into Sexual / Non-sexual per the
+// explicit rule below: 366 only counts as Sexual if the source text names
+// "illicit intercourse"; otherwise it's Non-sexual (forced marriage).
+// ---------------------------------------------------------------------------
+const OFFENSE_BUCKETS = {
+  "Murder & Attempted Murder": { sections: ["302", "303", "307", "308"] },
+  "Crime Against Women": {
+    sections: ["354", "354A", "354B", "354C", "354D", "375", "376", "498A", "304B", "313", "314", "366", "509"],
+    sexualSections: new Set(["354", "354A", "354B", "354C", "354D", "375", "376", "509"]),
+  },
+  "Kidnapping & Abduction": { sections: ["359", "360", "361", "363", "364", "364A", "365", "367", "368", "369"] },
+  "Robbery & Dacoity": { sections: ["390", "392", "393", "394", "395", "396", "397", "398", "399", "400", "401", "402"] },
+  "Hurt & Assault": { sections: ["323", "324", "325", "326", "332", "333", "337", "338", "352", "353"] },
+  "Wrongful Restraint / Confinement": { sections: ["339", "340", "341", "342", "343", "344"] },
+  "Arson & Property Destruction": { sections: ["425", "426", "427", "435", "436", "440"] },
+  "House-trespass / Burglary": { sections: ["441", "442", "447", "448", "449", "450", "451", "452", "454", "457"] },
+  "Unlawful Assembly & Rioting": { sections: ["141", "142", "143", "144", "145", "146", "147", "148", "151"] },
+  "Contempt of Public Authority": { sections: ["172", "173", "174", "175", "176", "177", "178", "179", "180", "182", "183", "184", "185", "186", "187", "188", "189", "190"] },
+  "Criminal Intimidation & Threats": { sections: ["189", "190", "503", "504", "506"] },
+  "Promoting Enmity / Hate Speech": { sections: ["153A", "153B", "295", "295A", "505"] },
+  "Corruption & Bribery": { sections: ["161", "162", "163", "164", "165", "165A", "171E"] },
+  "Forgery & Cheating": { sections: ["417", "418", "419", "420", "463", "465", "468", "471"] },
+  "Defamation": { sections: ["499", "500"] },
+};
+
+function classifyOffenseType(section, otherActsText = "") {
+  for (const [bucket, def] of Object.entries(OFFENSE_BUCKETS)) {
+    if (def.sections.includes(section)) {
+      if (bucket === "Crime Against Women") {
+        if (section === "366") {
+          const sexual = /illicit intercourse/i.test(otherActsText);
+          return { bucket, subType: sexual ? "Sexual" : "Non-sexual" };
+        }
+        return { bucket, subType: def.sexualSections.has(section) ? "Sexual" : "Non-sexual" };
+      }
+      return { bucket, subType: null };
+    }
+  }
+  return { bucket: "Other / Uncategorized", subType: null };
+}
 
 function parseSections(raw) {
   return raw
@@ -67,12 +131,12 @@ function classifyCase(rawSections, otherActs = "") {
   const hasUAPA = UAPA_SECTIONS.has === undefined ? false : sections.some((s) => UAPA_SECTIONS.has(s)) || /UA Act|Unlawful Activities/i.test(otherActs);
 
   if (hasUAPA) {
-    return { tier: "Special Legislation", serious: true, category: "Special/Security Law", primary: "UAPA", verified: true, special: true };
+    return { tier: "Special Legislation", serious: true, category: "Special/Security Law", offenseBucket: "Special/Security Law", offenseSubType: null, primary: "UAPA", verified: true, special: true };
   }
 
   const substantive = sections.filter((s) => !MODIFIER_CODES.has(s) && IPC_REF[s]);
   if (substantive.length === 0) {
-    return { tier: "Unclassified", serious: null, category: "Not determinable", primary: null, verified: false };
+    return { tier: "Unclassified", serious: null, category: "Not determinable", offenseBucket: "Not determinable", offenseSubType: null, primary: null, verified: false };
   }
 
   let worst = substantive[0];
@@ -86,10 +150,13 @@ function classifyCase(rawSections, otherActs = "") {
 
   const ref = IPC_REF[worst];
   const serious = !ref.bailable || ref.years >= 3;
+  const offenseType = classifyOffenseType(worst, otherActs);
   return {
     tier: serious ? "Serious" : "Non-serious",
     serious,
     category: ref.chapter,
+    offenseBucket: offenseType.bucket,
+    offenseSubType: offenseType.subType,
     primary: `IPC ${worst}`,
     primaryLabel: ref.label,
     verified: ref.verified,
@@ -151,6 +218,26 @@ const CANDIDATES = [
       { id: 6, sections: "188, 143, 341, 186, 290, 149", other: "", note: "CC 306/2021, Utnoor" },
     ],
   },
+  {
+    id: "majumdar",
+    name: "Sukanta Majumdar",
+    party: "BJP",
+    constituency: "Balurghat, West Bengal",
+    totalCases: 16,
+    shownCases: 9,
+    convicted: 0,
+    cases: [
+      { id: 3, sections: "143, 341, 323, 506, 509", other: "", note: "GR 428/2022, Balurghat — pending" },
+      { id: 1, sections: "143, 447, 427, 323, 506, 186, 188, 189, 353", other: "Section 8B National Highway Act, PDPP Act", note: "GR 422/2022, Balurghat — pending" },
+      { id: 10, sections: "147, 148, 149, 186, 188, 332, 353, 325, 326, 307", other: "PDBP Act, NH Act, MPO Act", note: "GR 457/2019, Gangarampur — pending" },
+      { id: 16, sections: "147, 148, 149, 186, 188, 189, 332, 333, 353, 323, 325, 308, 427, 34", other: "Prevention of Damage to Public Property Act", note: "GR 498/2024, Bashirhat — pending" },
+      { id: 8, sections: "120B, 153A, 295A, 420, 468, 504, 505(2)", other: "", note: "GR 72/2023, Beliaghata — pending" },
+      { id: 7, sections: "499, 500", other: "", note: "CR 3451/22, Alipore — defamation complaint, pending" },
+      { id: 2, sections: "171F, 188", other: "Section 130 Representation of the People Act", note: "GR 437/2022, Balurghat — pending" },
+      { id: 5, sections: "186, 353, 332, 427, 34", other: "", note: "GR 1371/2023, Tapan — pending" },
+      { id: 11, sections: "143, 188", other: "Section 32 Police Act", note: "GR 402/2019, Itahar — pending" },
+    ],
+  },
 ];
 
 function TierPill({ classification }) {
@@ -179,9 +266,10 @@ function TierPill({ classification }) {
   );
 }
 
-function CaseRow({ c }) {
+function CaseRow({ c, hidden }) {
   const [open, setOpen] = useState(false);
   const classification = classifyCase(c.sections, c.other);
+  if (hidden) return null;
 
   return (
     <div style={{ borderBottom: "1px solid #3a3530" }}>
@@ -195,9 +283,15 @@ function CaseRow({ c }) {
           <span className="font-mono text-xs" style={{ opacity: 0.5 }}>
             #{String(c.id).padStart(3, "0")}
           </span>
-          <span className="text-sm truncate" style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
-            {classification.primaryLabel || classification.category}
-          </span>
+          <div className="min-w-0">
+            <span className="text-sm truncate block" style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
+              {classification.primaryLabel || classification.category}
+            </span>
+            <span className="text-[11px] block" style={{ opacity: 0.5 }}>
+              {classification.offenseBucket}
+              {classification.offenseSubType ? ` · ${classification.offenseSubType}` : ""}
+            </span>
+          </div>
         </div>
         <TierPill classification={classification} />
       </button>
@@ -224,17 +318,39 @@ function CaseRow({ c }) {
   );
 }
 
+const ALL_BUCKETS_ORDER = [
+  "Murder & Attempted Murder",
+  "Crime Against Women",
+  "Special/Security Law",
+  "Robbery & Dacoity",
+  "Kidnapping & Abduction",
+  "Hurt & Assault",
+  "Arson & Property Destruction",
+  "House-trespass / Burglary",
+  "Wrongful Restraint / Confinement",
+  "Unlawful Assembly & Rioting",
+  "Contempt of Public Authority",
+  "Criminal Intimidation & Threats",
+  "Promoting Enmity / Hate Speech",
+  "Corruption & Bribery",
+  "Forgery & Cheating",
+  "Defamation",
+  "Not determinable",
+];
+
 function CandidateCard({ candidate }) {
   const [expanded, setExpanded] = useState(true);
+  const [activeBucket, setActiveBucket] = useState(null);
   const classifications = candidate.cases.map((c) => classifyCase(c.sections, c.other));
   const seriousCount = classifications.filter((c) => c.serious || c.special).length;
   const nonSeriousCount = classifications.filter((c) => c.serious === false).length;
   const unclassified = classifications.filter((c) => c.serious === null).length;
 
-  const categoryCounts = {};
+  const bucketCounts = {};
   classifications.forEach((c) => {
-    categoryCounts[c.category] = (categoryCounts[c.category] || 0) + 1;
+    bucketCounts[c.offenseBucket] = (bucketCounts[c.offenseBucket] || 0) + 1;
   });
+  const presentBuckets = ALL_BUCKETS_ORDER.filter((b) => bucketCounts[b] > 0);
 
   return (
     <div className="rounded-md overflow-hidden" style={{ background: "#211d18", border: "1px solid #3a3530" }}>
@@ -295,11 +411,38 @@ function CandidateCard({ candidate }) {
       </button>
 
       {expanded && (
-        <div className="px-5">
-          {candidate.cases.map((c) => (
-            <CaseRow key={c.id} c={c} />
-          ))}
-        </div>
+        <>
+          <div className="flex flex-wrap gap-1.5 px-5 py-3" style={{ borderBottom: "1px solid #3a3530" }}>
+            <button
+              onClick={() => setActiveBucket(null)}
+              className="text-[11px] px-2 py-1 rounded-sm"
+              style={{
+                background: activeBucket === null ? "#e8c468" : "#2a251f",
+                color: activeBucket === null ? "#1a1611" : "#a8a092",
+              }}
+            >
+              All ({candidate.cases.length})
+            </button>
+            {presentBuckets.map((b) => (
+              <button
+                key={b}
+                onClick={() => setActiveBucket(activeBucket === b ? null : b)}
+                className="text-[11px] px-2 py-1 rounded-sm"
+                style={{
+                  background: activeBucket === b ? "#e8c468" : "#2a251f",
+                  color: activeBucket === b ? "#1a1611" : "#a8a092",
+                }}
+              >
+                {b} ({bucketCounts[b]})
+              </button>
+            ))}
+          </div>
+          <div className="px-5">
+            {candidate.cases.map((c, i) => (
+              <CaseRow key={c.id} c={c} hidden={activeBucket !== null && classifications[i].offenseBucket !== activeBucket} />
+            ))}
+          </div>
+        </>
       )}
 
       <div className="px-5 py-3 text-xs flex items-start gap-2" style={{ background: "#1a1611", color: "#807868" }}>
@@ -336,7 +479,7 @@ export default function BallotBrief() {
           </p>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-5">
+        <div className="grid md:grid-cols-3 gap-5">
           {CANDIDATES.map((c) => (
             <CandidateCard key={c.id} candidate={c} />
           ))}
@@ -345,10 +488,19 @@ export default function BallotBrief() {
         <footer className="mt-10 pt-6 text-xs space-y-2" style={{ borderTop: "1px solid #3a3530", color: "#807868" }}>
           <p>
             <strong style={{ color: "#a8a092" }}>This is a working prototype, not the finished tool.</strong>{" "}
-            The case data shown is a hand-picked representative sample (14 of Surendran's 243 cases, 12 of
-            Suguna's 49) pulled directly from each candidate's MyNeta affidavit page — not the full dataset,
-            and not a random sample. It exists to pressure-test the classification logic, not to characterize
-            either candidate's full record.
+            The case data shown is a hand-picked representative sample — 14 of Surendran's 243 cases, 12 of
+            Suguna's 49, 9 of Majumdar's 16 — pulled directly from each candidate's MyNeta affidavit page.
+            It is not the full dataset and not a random sample; it exists to pressure-test the classification
+            logic across a range of severity and offense types, not to characterize any candidate's full record.
+          </p>
+          <p>
+            <strong style={{ color: "#a8a092" }}>On the third candidate:</strong> Majumdar was added to exercise
+            the Crime Against Women / Sexual sub-classification, which neither of the first two candidates'
+            sampled cases triggered. He was found by continuing the same systematic method used throughout
+            this build — the next page of MyNeta's own criminal-case-sorted list, first matching row — not by
+            searching for a candidate with a specific allegation type. The offense-type taxonomy is applied
+            identically regardless of party; this build currently includes 2 BJP candidates and 1 INC candidate
+            only because of where they fell in that list.
           </p>
           <p>
             Bail status for sections marked "not yet verified" in the case detail reflects well-established
