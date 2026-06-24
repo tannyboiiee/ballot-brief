@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Scale, FileText, ShieldAlert, BadgeCheck, ExternalLink, Info } from "lucide-react";
+import { ChevronDown, ChevronRight, Scale, FileText, ShieldAlert, BadgeCheck, ExternalLink, Info, Search, ArrowLeft } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // IPC reference table — sourced from the CrPC First Schedule (bail/cognizance)
@@ -318,6 +318,23 @@ function CaseRow({ c, hidden }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Party-level statistics — sourced directly from ADR's own published
+// consolidated report (Lok Sabha 2024, Phases 1-7), not computed from the
+// 3-candidate demo sample below. The sample exists to stress-test the
+// severity/offense-type taxonomy and is nowhere near large enough, or
+// neutrally selected enough, to support a percentage claim on its own.
+// ---------------------------------------------------------------------------
+const PARTY_STATS = [
+  { party: "CPI(M)", withCases: 33, total: 52 },
+  { party: "INC", withCases: 143, total: 327 },
+  { party: "BJP", withCases: 191, total: 440 },
+  { party: "BSP", withCases: 63, total: 487 },
+  { party: "Independents", withCases: 550, total: 3903 },
+];
+const PARTY_STATS_SOURCE =
+  "ADR / National Election Watch, consolidated analysis of Lok Sabha 2024 candidates, Phases 1–7 (8,337 of 8,360 candidates analysed).";
+
 const ALL_BUCKETS_ORDER = [
   "Murder & Attempted Murder",
   "Crime Against Women",
@@ -456,7 +473,164 @@ function CandidateCard({ candidate }) {
   );
 }
 
+function PartyStats({ onSelectParty }) {
+  const sorted = [...PARTY_STATS].sort((a, b) => b.withCases / b.total - a.withCases / a.total);
+
+  return (
+    <div className="mb-8">
+      <div className="flex flex-wrap gap-6 md:gap-8 justify-center md:justify-start">
+        {sorted.map((p) => {
+          const pct = Math.round((p.withCases / p.total) * 100);
+          return (
+            <button
+              key={p.party}
+              onClick={() => onSelectParty(p.party)}
+              className="flex flex-col items-center gap-2"
+              style={{ width: 92 }}
+            >
+              <div
+                className="rounded-full flex items-center justify-center text-xs font-semibold text-center px-1 transition-transform"
+                style={{
+                  width: 72,
+                  height: 72,
+                  border: "2px solid #e8a468",
+                  color: "#f0ebe0",
+                  background: "#211d18",
+                }}
+              >
+                {p.party}
+              </div>
+              <div className="text-lg font-mono" style={{ color: "#e8a468" }}>
+                {pct}%
+              </div>
+              <div className="text-[10px] text-center" style={{ color: "#807868" }}>
+                {p.withCases}/{p.total} candidates
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] mt-5 flex items-start gap-1.5" style={{ color: "#807868" }}>
+        <ExternalLink size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Source: {PARTY_STATS_SOURCE} These figures are not derived from the demo candidates below — that
+          set is for taxonomy testing only and is far too small, and not neutrally sampled, to support a
+          percentage claim. Click a party to see which demo candidates belong to it.
+        </span>
+      </p>
+    </div>
+  );
+}
+
+
+function CandidateListRow({ candidate, onSelect }) {
+  return (
+    <button
+      onClick={() => onSelect(candidate.id)}
+      className="w-full flex items-center justify-between gap-3 py-3 px-4 text-left"
+      style={{ borderBottom: "1px solid #3a3530" }}
+    >
+      <div>
+        <div style={{ color: "#f0ebe0", fontFamily: "'Source Serif 4', Georgia, serif" }}>{candidate.name}</div>
+        <div className="text-xs" style={{ color: "#9a9285" }}>
+          {candidate.party} · {candidate.constituency}
+        </div>
+      </div>
+      <div className="text-right flex items-center gap-2">
+        <div>
+          <div className="font-mono text-lg" style={{ color: "#e8c468" }}>
+            {candidate.totalCases}
+          </div>
+          <div className="text-[10px]" style={{ color: "#807868" }}>
+            cases
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: "#807868" }} />
+      </div>
+    </button>
+  );
+}
+
+function PartyLeaderboard({ party, onSelectCandidate, onBack }) {
+  const members = CANDIDATES.filter((c) => c.party === party).sort((a, b) => b.totalCases - a.totalCases);
+
+  return (
+    <div>
+      <button onClick={onBack} className="flex items-center gap-1.5 text-sm mb-6" style={{ color: "#a8a092" }}>
+        <ArrowLeft size={14} /> Back
+      </button>
+      <h2 className="text-2xl mb-1" style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: "#f0ebe0" }}>
+        {party}
+      </h2>
+      <p className="text-sm mb-5" style={{ color: "#9a9285" }}>
+        Demo candidates with declared cases, ranked highest to lowest by case count.
+      </p>
+      {members.length === 0 ? (
+        <div className="rounded-md p-8 text-center text-sm" style={{ background: "#211d18", border: "1px solid #3a3530", color: "#807868" }}>
+          No {party} candidates in the current demo set yet — this build only includes 3 candidates total,
+          added to stress-test the classification logic, not to cover every party.
+        </div>
+      ) : (
+        <div className="rounded-md overflow-hidden" style={{ background: "#211d18", border: "1px solid #3a3530" }}>
+          {members.map((c) => (
+            <CandidateListRow key={c.id} candidate={c} onSelect={onSelectCandidate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchResults({ query, onSelectCandidate }) {
+  const q = query.trim().toLowerCase();
+  const results = CANDIDATES.filter(
+    (c) => c.name.toLowerCase().includes(q) || c.constituency.toLowerCase().includes(q) || c.party.toLowerCase().includes(q)
+  ).sort((a, b) => b.totalCases - a.totalCases);
+
+  return (
+    <div>
+      <p className="text-sm mb-4" style={{ color: "#9a9285" }}>
+        {results.length} match{results.length === 1 ? "" : "es"} in the demo set for "{query}"
+      </p>
+      {results.length === 0 ? (
+        <div className="rounded-md p-8 text-center text-sm" style={{ background: "#211d18", border: "1px solid #3a3530", color: "#807868" }}>
+          No match. This demo only indexes 3 candidates — try "Surendran," "Suguna," or "Majumdar."
+        </div>
+      ) : (
+        <div className="rounded-md overflow-hidden" style={{ background: "#211d18", border: "1px solid #3a3530" }}>
+          {results.map((c) => (
+            <CandidateListRow key={c.id} candidate={c} onSelect={onSelectCandidate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function BallotBrief() {
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState("home"); // "home" | "party" | "candidate"
+  const [selectedParty, setSelectedParty] = useState(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+
+  const goHome = () => {
+    setView("home");
+    setSelectedParty(null);
+    setSelectedCandidateId(null);
+    setQuery("");
+  };
+  const goToParty = (party) => {
+    setSelectedParty(party);
+    setView("party");
+  };
+  const goToCandidate = (id) => {
+    setSelectedCandidateId(id);
+    setView("candidate");
+  };
+
+  const selectedCandidate = CANDIDATES.find((c) => c.id === selectedCandidateId);
+
   return (
     <div
       className="min-h-screen p-6 md:p-10"
@@ -464,27 +638,58 @@ export default function BallotBrief() {
     >
       <div className="max-w-5xl mx-auto">
         <header className="mb-8">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider mb-3" style={{ color: "#e8c468", letterSpacing: "0.08em" }}>
+          <button onClick={goHome} className="flex items-center gap-2 text-xs uppercase tracking-wider mb-3" style={{ color: "#e8c468", letterSpacing: "0.08em" }}>
             <Scale size={14} />
             Ballot Brief — severity taxonomy prototype
-          </div>
-          <h1 className="text-3xl md:text-4xl mb-3" style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: "#f0ebe0" }}>
-            Reading a criminal record without flattening it
-          </h1>
-          <p className="text-sm md:text-base max-w-2xl" style={{ color: "#a8a092", lineHeight: 1.6 }}>
-            A raw case count tells you almost nothing — it can't distinguish a protest-era public-order
-            charge from an attempt-to-murder count. Every case below is tagged against the CrPC's own
-            bail classification and IPC chapter structure, not an invented severity scale. Click any case
-            to see exactly which section drove its classification.
-          </p>
+          </button>
+          {view === "home" && (
+            <>
+              <h1 className="text-3xl md:text-4xl mb-3" style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: "#f0ebe0" }}>
+                Reading a criminal record without flattening it
+              </h1>
+              <p className="text-sm md:text-base max-w-2xl" style={{ color: "#a8a092", lineHeight: 1.6 }}>
+                A raw case count tells you almost nothing — it can't distinguish a protest-era public-order
+                charge from an attempt-to-murder count. Every case below is tagged against the CrPC's own
+                bail classification and IPC chapter structure, not an invented severity scale. Click any case
+                to see exactly which section drove its classification.
+              </p>
+            </>
+          )}
         </header>
 
-        <div className="grid md:grid-cols-3 gap-5">
-          {CANDIDATES.map((c) => (
-            <CandidateCard key={c.id} candidate={c} />
-          ))}
-        </div>
+        {view === "home" && (
+          <div className="relative mb-8">
+            <Search size={18} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#807868" }} />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search a candidate, constituency, or party…"
+              className="w-full py-4 pl-12 pr-4 rounded-md text-base outline-none"
+              style={{ background: "#211d18", border: "1px solid #3a3530", color: "#f0ebe0" }}
+            />
+            <p className="text-[11px] mt-2" style={{ color: "#807868" }}>
+              Searches the {CANDIDATES.length}-candidate demo set used to test this taxonomy — not a full Lok
+              Sabha 2024 index yet.
+            </p>
+          </div>
+        )}
 
+        {view === "home" && query.trim() === "" && <PartyStats onSelectParty={goToParty} />}
+        {view === "home" && query.trim() !== "" && <SearchResults query={query} onSelectCandidate={goToCandidate} />}
+        {view === "party" && <PartyLeaderboard party={selectedParty} onSelectCandidate={goToCandidate} onBack={goHome} />}
+        {view === "candidate" && selectedCandidate && (
+          <div>
+            <button onClick={goHome} className="flex items-center gap-1.5 text-sm mb-6" style={{ color: "#a8a092" }}>
+              <ArrowLeft size={14} /> Back
+            </button>
+            <div className="grid md:grid-cols-1 max-w-md">
+              <CandidateCard candidate={selectedCandidate} />
+            </div>
+          </div>
+        )}
+
+        {view === "home" && (
         <footer className="mt-10 pt-6 text-xs space-y-2" style={{ borderTop: "1px solid #3a3530", color: "#807868" }}>
           <p>
             <strong style={{ color: "#a8a092" }}>This is a working prototype, not the finished tool.</strong>{" "}
@@ -512,6 +717,7 @@ export default function BallotBrief() {
             Source data: myneta.info (ADR / National Election Watch), archiving Election Commission of India affidavits.
           </p>
         </footer>
+        )}
       </div>
     </div>
   );
