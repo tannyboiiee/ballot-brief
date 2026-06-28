@@ -1,0 +1,8 @@
+name = "ballot-brief"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ballot-brief"
+database_id = "38f62e89-9484-4a40-9d73-33fdd975f971"
