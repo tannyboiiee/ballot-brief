@@ -13,9 +13,9 @@ export default function Header({ active, onNavigate }) {
         key={view}
         onClick={() => onNavigate(view)}
         style={{
-          fontSize: isMobile ? 13 : 14,
+          fontSize: isMobile ? 12 : 14,
           fontWeight: isActive ? 600 : 500,
-          padding: isMobile ? '6px 9px' : '7px 13px',
+          padding: isMobile ? '5px 7px' : '7px 13px',
           borderRadius: 8,
           color: isActive ? COLORS.accent : COLORS.muted,
           background: isActive ? COLORS.accentTintBg : 'transparent',
@@ -43,18 +43,18 @@ export default function Header({ active, onNavigate }) {
         style={{
           maxWidth: LAYOUT_MAX_WIDTH.header,
           margin: '0 auto',
-          padding: isMobile ? '10px 14px' : '13px 28px',
+          padding: isMobile ? '8px 12px' : '13px 28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: isMobile ? 8 : 24,
+          gap: isMobile ? 6 : 24,
         }}
       >
-        <button onClick={() => onNavigate('home')} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 7 : 11, flexShrink: 0 }}>
+        <button onClick={() => onNavigate('home')} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 11, flexShrink: 0 }}>
           <span
             style={{
-              width: isMobile ? 24 : 28,
-              height: isMobile ? 24 : 28,
+              width: isMobile ? 22 : 28,
+              height: isMobile ? 22 : 28,
               borderRadius: 7,
               background: COLORS.ink,
               display: 'flex',
@@ -63,10 +63,10 @@ export default function Header({ active, onNavigate }) {
               flexShrink: 0,
             }}
           >
-            <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: 2, border: `2.5px solid ${COLORS.pageBg}` }} />
+            <span style={{ width: isMobile ? 8 : 11, height: isMobile ? 8 : 11, borderRadius: 2, border: `2.5px solid ${COLORS.pageBg}` }} />
           </span>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.05 }}>
-            <span style={{ fontWeight: 700, fontSize: isMobile ? 14 : 15, letterSpacing: '-0.01em', color: COLORS.ink }}>
+            <span style={{ fontWeight: 700, fontSize: isMobile ? 13 : 15, letterSpacing: '-0.01em', color: COLORS.ink, whiteSpace: 'nowrap' }}>
               Ballot Brief
             </span>
             {!isMobile && (
@@ -76,9 +76,9 @@ export default function Header({ active, onNavigate }) {
             )}
           </span>
         </button>
-        <nav style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 4, flexShrink: 0 }}>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 4, flexShrink: 1, minWidth: 0 }}>
           {navItem('home', isMobile ? 'Home' : 'Overview')}
-          {navItem('candidates', 'Candidates')}
+          {navItem('candidates', isMobile ? 'Search' : 'Candidates')}
           {navItem('parties', 'Parties')}
         </nav>
       </div>

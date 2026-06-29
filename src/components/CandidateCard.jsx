@@ -35,6 +35,8 @@ export default function CandidateCard({ candidate, onOpen }) {
     <button
       onClick={onOpen}
       style={{
+        width: '100%',
+        boxSizing: 'border-box',
         textAlign: 'left',
         background: COLORS.surface,
         border: `1px solid ${COLORS.border}`,

@@ -5,7 +5,7 @@ import { RateChip, SpecialLegislationChip } from '../components/SeverityBadge';
 import PartyTile from '../components/PartyTile';
 import { useIsMobile } from '../lib/useIsMobile';
 
-const EXAMPLES = ['Devraj Naik', 'Kolhapur', 'BJP'];
+const EXAMPLES = ['K Surendran', 'Kolhapur', 'BJP'];
 
 // Stat-strip numbers are hardcoded — there's no single endpoint that
 // returns total candidates/seats/parties across the whole dataset.
@@ -61,6 +61,7 @@ export default function Home({ onSearch, onNavigateParties }) {
           <div
             style={{
               flex: 1,
+              minWidth: 0,
               display: 'flex',
               alignItems: 'center',
               gap: 10,
@@ -77,7 +78,7 @@ export default function Home({ onSearch, onNavigateParties }) {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSearch(query)}
               placeholder="Search a candidate, constituency or party"
-              style={{ flex: 1, border: 'none', background: 'none', padding: '14px 0', fontSize: 15, color: COLORS.ink, outline: 'none' }}
+              style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', padding: '14px 0', fontSize: 15, color: COLORS.ink, outline: 'none' }}
             />
           </div>
           <button onClick={() => onSearch(query)} style={{ background: COLORS.accent, color: '#fff', fontWeight: 600, fontSize: 14.5, padding: '0 22px', borderRadius: 11 }}>
@@ -98,13 +99,13 @@ export default function Home({ onSearch, onNavigateParties }) {
       <section
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4,1fr)',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
           gap: 1,
           background: COLORS.border,
           border: `1px solid ${COLORS.border}`,
           borderRadius: 13,
           overflow: 'hidden',
-          marginTop: 46,
+          marginTop: isMobile ? 28 : 46,
         }}
       >
         {[
@@ -113,22 +114,22 @@ export default function Home({ onSearch, onNavigateParties }) {
           { value: STATS.parties, label: 'parties' },
           { value: STATS.tiers, label: 'severity tiers' },
         ].map((st) => (
-          <div key={st.label} style={{ background: COLORS.surface, padding: '20px 22px' }}>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 27, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.ink }}>{st.value}</div>
-            <div style={{ fontSize: 13, color: COLORS.faint, marginTop: 3 }}>{st.label}</div>
+          <div key={st.label} style={{ background: COLORS.surface, padding: isMobile ? '12px 8px' : '20px 22px', minWidth: 0 }}>
+            <div style={{ fontFamily: FONT_MONO, fontSize: isMobile ? 19 : 27, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.value}</div>
+            <div style={{ fontSize: isMobile ? 11 : 13, color: COLORS.faint, marginTop: 3, lineHeight: 1.25 }}>{st.label}</div>
           </div>
         ))}
       </section>
 
       {/* How we grade a case */}
       <section style={{ marginTop: 54 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
-          <h2 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: COLORS.ink }}>How we grade a case</h2>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'baseline', justifyContent: 'space-between', gap: isMobile ? 4 : 0, marginBottom: 18 }}>
+          <h2 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: COLORS.ink, whiteSpace: 'nowrap' }}>How we grade a case</h2>
           <span style={{ fontSize: 13, color: COLORS.faint2, fontFamily: FONT_MONO }}>CrPC First Schedule · IPC chapters</span>
         </div>
         {/* Heads up: this severity ramp doesn't exist in classification.js yet
             — see lib/severity.js for the placeholder heuristic deriving it. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
           {[4, 3].map((t) => (
             <div key={t} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '16px 16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
@@ -172,7 +173,7 @@ export default function Home({ onSearch, onNavigateParties }) {
               style={{
                 width: '100%',
                 display: 'grid',
-                gridTemplateColumns: isMobile ? '32px 1fr 64px' : '30px 38px 1fr 116px 132px',
+                gridTemplateColumns: isMobile ? '32px minmax(0, 1fr) 64px' : '30px 38px minmax(0, 1fr) 116px 132px',
                 alignItems: 'center',
                 gap: isMobile ? 10 : 14,
                 padding: isMobile ? '10px 14px' : '11px 18px',

@@ -159,7 +159,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
 
       {/* Summary tiles */}
       {total > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr 1fr', gap: 12, marginTop: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : '1.5fr 1fr 1fr', gap: 12, marginTop: 14 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '18px 20px' }}>
             <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.06em', color: COLORS.faint2, textTransform: 'uppercase' }}>Declared cases</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '6px 0 13px' }}>
@@ -211,7 +211,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
             {offenceRows.map((off) => {
               const Icon = off.icon;
               return (
-                <div key={off.key} style={{ display: 'grid', gridTemplateColumns: isMobile ? '22px 1fr 70px 26px' : '30px 1fr 150px 34px', alignItems: 'center', gap: isMobile ? 8 : 13, padding: '11px 0', borderBottom: `1px solid ${COLORS.divider2}` }}>
+                <div key={off.key} style={{ display: 'grid', gridTemplateColumns: isMobile ? '22px minmax(0, 1fr) 70px 26px' : '30px minmax(0, 1fr) 150px 34px', alignItems: 'center', gap: isMobile ? 8 : 13, padding: '11px 0', borderBottom: `1px solid ${COLORS.divider2}` }}>
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted }}>
                     <Icon size={17} strokeWidth={1.8} />
                   </span>
@@ -245,7 +245,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
           rather than reformatting the raw rupee figures. */}
       <section style={{ marginTop: 30 }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 14px', color: COLORS.ink }}>Assets &amp; liabilities</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '18px 20px' }}>
             <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.06em', color: COLORS.faint2, textTransform: 'uppercase' }}>Total assets</div>
             <div style={{ fontFamily: FONT_MONO, fontSize: 26, fontWeight: 600, marginTop: 6, color: COLORS.ink }}>{candidate.totalAssetsLabel}</div>

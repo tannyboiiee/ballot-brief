@@ -31,6 +31,10 @@ export default function App() {
     <div
       style={{
         minHeight: '100vh',
+        width: '100%',
+        overflowX: 'hidden',
+        overflowY: 'visible',
+        boxSizing: 'border-box',
         background: COLORS.pageBg,
         color: COLORS.ink,
         fontFamily: "'IBM Plex Sans', system-ui, sans-serif",

@@ -71,7 +71,7 @@ export default function PartyLeaderboard({ onSelectParty }) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '36px 1fr 56px' : '44px 1fr 160px 130px 150px',
+            gridTemplateColumns: isMobile ? '36px minmax(0, 1fr) 56px' : '44px minmax(0, 1fr) 160px 130px 150px',
             alignItems: 'center',
             gap: isMobile ? 10 : 14,
             padding: isMobile ? '10px 14px' : '12px 20px',
@@ -110,7 +110,7 @@ export default function PartyLeaderboard({ onSelectParty }) {
             style={{
               width: '100%',
               display: 'grid',
-              gridTemplateColumns: isMobile ? '36px 1fr 56px' : '44px 1fr 160px 130px 150px',
+              gridTemplateColumns: isMobile ? '36px minmax(0, 1fr) 56px' : '44px minmax(0, 1fr) 160px 130px 150px',
               alignItems: 'center',
               gap: isMobile ? 10 : 14,
               padding: isMobile ? '10px 14px' : '12px 20px',
