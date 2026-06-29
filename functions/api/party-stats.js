@@ -8,7 +8,8 @@ export async function onRequestGet({ env }) {
   const rows = await env.DB.prepare(
     `SELECT party,
             COUNT(*) AS total,
-            SUM(CASE WHEN criminal_case_count > 0 THEN 1 ELSE 0 END) AS with_cases
+            SUM(CASE WHEN criminal_case_count > 0 THEN 1 ELSE 0 END) AS with_cases,
+            SUM(CASE WHEN is_winner = 1 THEN 1 ELSE 0 END) AS seats_won
      FROM candidates
      WHERE party IS NOT NULL AND party != ''
      GROUP BY party
@@ -20,6 +21,7 @@ export async function onRequestGet({ env }) {
     party: r.party,
     withCases: r.with_cases,
     total: r.total,
+    seatsWon: r.seats_won,
   }));
 
   return new Response(

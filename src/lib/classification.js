@@ -4,8 +4,32 @@
 // directly against devgan.in's First Schedule pages during this session.
 // Others reflect well-established classification but are flagged for a
 // follow-up verification pass before this becomes load-bearing in product.
+//
+// CHANGELOG (this pass): added 304, 304B, 313, 314, 364, 364A, 396, 326A,
+// 326B, 370, 370A — all researched against multiple legal sources (devgan.in,
+// IPC bare-act text, case law) rather than guessed. See conversation notes
+// for sourcing. Also added "104" — Section 104 of the Bharatiya Nyaya
+// Sanhita (BNS), 2023, the in-force replacement for the old, defunct IPC
+// 303 (struck down in Mithu v. State of Punjab, 1983). BNS 104 fixes the
+// exact defect that got 303 struck down — it gives courts discretion
+// between death and life imprisonment, rather than 303's old mandatory-
+// death-only rule — so unlike 303, this one is live, enforceable law.
+//
+// IMPORTANT CAVEAT ON "104": BNS section numbers are an entirely different
+// numbering scheme from IPC, and "104" is also incidentally a real (but
+// inactive in this context) *IPC* section — IPC 104 is a private-defence
+// exception clause, not a chargeable offence, so in practice no case
+// should ever cite it as the charge itself. But this is a narrow escape,
+// not a designed-in safety: nothing in this file's data structure
+// distinguishes "IPC section 104" from "BNS section 104", and as more
+// post-July-2024 cases get filed under BNS, more numbers will collide with
+// unrelated IPC sections that *do* mean something else. Worth a deliberate
+// look at namespacing IPC vs BNS codes (e.g. a separate BNS_REF table, or
+// prefixed keys) before this becomes a real misclassification risk rather
+// than a one-off lucky non-collision.
 // ---------------------------------------------------------------------------
 export const IPC_REF = {
+  104: { label: "Punishment for murder by life-convict (BNS s.104 — in-force replacement for the struck-down IPC 303)", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
   141: { label: "Unlawful assembly", chapter: "Public Tranquility", bailable: true, years: 0.5, verified: false },
   143: { label: "Being member of unlawful assembly", chapter: "Public Tranquility", bailable: true, years: 0.5, verified: true },
   144: { label: "Joining unlawful assembly armed", chapter: "Public Tranquility", bailable: true, years: 2, verified: true },
@@ -22,18 +46,35 @@ export const IPC_REF = {
   189: { label: "Threatening a public servant", chapter: "Contempt of Lawful Authority", bailable: true, years: 2, verified: true },
   283: { label: "Obstruction in a public way", chapter: "Public Health & Safety", bailable: true, years: 0, verified: false },
   294: { label: "Obscene act in public", chapter: "Public Health & Safety", bailable: true, years: 0, verified: false },
+  302: { label: "Murder", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
+  304: { label: "Culpable homicide not amounting to murder", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
+  "304B": { label: "Dowry death", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
   307: { label: "Attempt to murder", chapter: "Offences Against the Body", bailable: false, years: 10, verified: false },
   308: { label: "Attempt to commit culpable homicide", chapter: "Offences Against the Body", bailable: false, years: 7, verified: false },
+  313: { label: "Causing miscarriage without woman's consent", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
+  314: { label: "Death caused by act done with intent to cause miscarriage", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
   323: { label: "Voluntarily causing hurt", chapter: "Offences Against the Body", bailable: true, years: 1, verified: false },
   324: { label: "Causing hurt by dangerous weapon", chapter: "Offences Against the Body", bailable: false, years: 3, verified: false },
   326: { label: "Causing grievous hurt by dangerous weapon", chapter: "Offences Against the Body", bailable: false, years: 10, verified: false },
+  "326A": { label: "Voluntarily causing grievous hurt by acid", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
+  "326B": { label: "Voluntarily throwing or attempting to throw acid", chapter: "Offences Against the Body", bailable: false, years: 7, verified: true },
   332: { label: "Hurting a public servant on duty", chapter: "Offences Against the Body", bailable: true, years: 3, verified: false },
   333: { label: "Grievous hurt to a public servant on duty", chapter: "Offences Against the Body", bailable: false, years: 10, verified: false },
   341: { label: "Wrongful restraint", chapter: "Offences Against the Body", bailable: true, years: 0.1, verified: false },
   342: { label: "Wrongful confinement", chapter: "Offences Against the Body", bailable: true, years: 1, verified: false },
   353: { label: "Assault to deter a public servant", chapter: "Offences Against the Body", bailable: true, years: 2, verified: false },
   354: { label: "Assault on a woman, outraging modesty", chapter: "Offences Against the Body", bailable: false, years: 5, verified: false },
+  359: { label: "Kidnapping", chapter: "Offences Against the Body", bailable: false, years: 7, verified: false },
+  364: { label: "Kidnapping or abducting in order to murder", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
+  "364A": { label: "Kidnapping for ransom, etc.", chapter: "Offences Against the Body", bailable: false, years: 99, verified: true },
+  366: { label: "Kidnapping/abducting a woman to compel marriage", chapter: "Offences Against the Body", bailable: false, years: 10, verified: false },
+  370: { label: "Trafficking of persons", chapter: "Offences Against the Body", bailable: false, years: 10, verified: true },
+  "370A": { label: "Exploitation of a trafficked person", chapter: "Offences Against the Body", bailable: false, years: 7, verified: true },
+  375: { label: "Rape", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
+  376: { label: "Punishment for rape", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
+  390: { label: "Robbery", chapter: "Offences Against Property", bailable: false, years: 10, verified: false },
   395: { label: "Dacoity", chapter: "Offences Against Property", bailable: false, years: 10, verified: false },
+  396: { label: "Dacoity with murder", chapter: "Offences Against Property", bailable: false, years: 99, verified: true },
   398: { label: "Armed attempt at robbery / dacoity", chapter: "Offences Against Property", bailable: false, years: 10, verified: false },
   427: { label: "Mischief causing damage", chapter: "Offences Against Property", bailable: true, years: 2, verified: false },
   435: { label: "Mischief by fire / explosive", chapter: "Offences Against Property", bailable: true, years: 2, verified: false },
@@ -47,13 +88,6 @@ export const IPC_REF = {
   225: { label: "Resistance to lawful apprehension of another", chapter: "False Evidence & Public Justice", bailable: true, years: 2, verified: false },
   295: { label: "Injuring or defiling a place of worship", chapter: "Offences Relating to Religion", bailable: false, years: 2, verified: false },
   "295A": { label: "Deliberate acts to outrage religious feelings", chapter: "Offences Relating to Religion", bailable: false, years: 3, verified: false },
-  302: { label: "Murder", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
-  325: { label: "Causing grievous hurt", chapter: "Offences Against the Body", bailable: true, years: 7, verified: false },
-  359: { label: "Kidnapping", chapter: "Offences Against the Body", bailable: false, years: 7, verified: false },
-  366: { label: "Kidnapping/abducting a woman to compel marriage", chapter: "Offences Against the Body", bailable: false, years: 10, verified: false },
-  375: { label: "Rape", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
-  376: { label: "Punishment for rape", chapter: "Offences Against the Body", bailable: false, years: 99, verified: false },
-  390: { label: "Robbery", chapter: "Offences Against Property", bailable: false, years: 10, verified: false },
   420: { label: "Cheating and dishonestly inducing delivery of property", chapter: "Offences Against Property", bailable: true, years: 7, verified: false },
   468: { label: "Forgery for the purpose of cheating", chapter: "Offences Against Property", bailable: false, years: 7, verified: false },
   499: { label: "Defamation", chapter: "Defamation", bailable: true, years: 2, verified: false },
@@ -78,16 +112,24 @@ export const UAPA_SECTIONS = new Set(["10", "13", "17", "18", "18B", "40"]);
 // "Crime Against Women" further splits into Sexual / Non-sexual per the
 // explicit rule below: 366 only counts as Sexual if the source text names
 // "illicit intercourse"; otherwise it's Non-sexual (forced marriage).
+//
+// CHANGELOG (this pass): added "Human Trafficking" as a new bucket (370,
+// 370A weren't in any bucket before). Added 326A/326B to Hurt & Assault
+// (sat next to 326 already there but weren't listed). 304 added to
+// Murder & Attempted Murder. 304/304B/313/314/364/364A/396 were already
+// present in their respective bucket sections arrays — only their IPC_REF
+// data entries were missing, not their bucket placement.
 // ---------------------------------------------------------------------------
 export const OFFENSE_BUCKETS = {
-  "Murder & Attempted Murder": { sections: ["302", "303", "307", "308"] },
+  "Murder & Attempted Murder": { sections: ["302", "104", "304", "307", "308"] },
   "Crime Against Women": {
     sections: ["354", "354A", "354B", "354C", "354D", "375", "376", "498A", "304B", "313", "314", "366", "509"],
     sexualSections: new Set(["354", "354A", "354B", "354C", "354D", "375", "376", "509"]),
   },
   "Kidnapping & Abduction": { sections: ["359", "360", "361", "363", "364", "364A", "365", "367", "368", "369"] },
+  "Human Trafficking": { sections: ["370", "370A"] },
   "Robbery & Dacoity": { sections: ["390", "392", "393", "394", "395", "396", "397", "398", "399", "400", "401", "402"] },
-  "Hurt & Assault": { sections: ["323", "324", "325", "326", "332", "333", "337", "338", "352", "353"] },
+  "Hurt & Assault": { sections: ["323", "324", "325", "326", "326A", "326B", "332", "333", "337", "338", "352", "353"] },
   "Wrongful Restraint / Confinement": { sections: ["339", "340", "341", "342", "343", "344"] },
   "Arson & Property Destruction": { sections: ["425", "426", "427", "435", "436", "440"] },
   "House-trespass / Burglary": { sections: ["441", "442", "447", "448", "449", "450", "451", "452", "454", "457"] },

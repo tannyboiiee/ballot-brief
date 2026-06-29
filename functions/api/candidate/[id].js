@@ -9,6 +9,7 @@ export async function onRequestGet({ params, env }) {
 
   const candidateRow = await env.DB.prepare(
     `SELECT candidate_id, name, is_winner, party, state, constituency, age,
+            photo_url,
             total_assets_rupees, total_assets_label,
             total_liabilities_rupees, total_liabilities_label,
             criminal_case_count
@@ -65,6 +66,7 @@ export async function onRequestGet({ params, env }) {
     party: candidateRow.party,
     constituency: `${candidateRow.constituency}, ${candidateRow.state}`,
     age: candidateRow.age,
+    photoUrl: candidateRow.photo_url,
     totalAssetsRupees: candidateRow.total_assets_rupees,
     totalAssetsLabel: candidateRow.total_assets_label,
     totalLiabilitiesRupees: candidateRow.total_liabilities_rupees,
