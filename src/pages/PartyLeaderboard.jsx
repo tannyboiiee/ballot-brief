@@ -4,6 +4,7 @@ import { generatedTileStyle } from '../lib/partyTile';
 import PartyTile from '../components/PartyTile';
 import { RateChip } from '../components/SeverityBadge';
 import { PARTY_SYMBOLS } from '../lib/partySymbols'; // adjust path if partySymbols.js lives somewhere else in your repo
+import { useIsMobile } from '../lib/useIsMobile';
 
 const sortHeadStyle = {
   fontFamily: FONT_MONO,
@@ -25,6 +26,7 @@ const sortHeadStyle = {
 export default function PartyLeaderboard({ onSelectParty }) {
   const [parties, setParties] = useState([]);
   const [sort, setSort] = useState({ key: 'seatsWon', dir: -1 });
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetch('/api/party-stats')
@@ -59,27 +61,45 @@ export default function PartyLeaderboard({ onSelectParty }) {
   const maxSeats = Math.max(1, ...parties.map((p) => p.seatsWon || 0));
 
   return (
-    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.leaderboard, margin: '0 auto', padding: '34px 28px 80px' }}>
+    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.leaderboard, margin: '0 auto', padding: isMobile ? '20px 14px 60px' : '34px 28px 80px' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px', color: COLORS.ink }}>Parties</h1>
       <p style={{ fontSize: 14, color: COLORS.faint, margin: '0 0 22px' }}>
         {parties.length} parties shown (10+ candidates) · sorted live. Click a column to re-sort.
       </p>
 
       <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 160px 130px 150px', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: `1px solid ${COLORS.border}`, background: '#fbfbfc' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '36px 1fr 56px' : '44px 1fr 160px 130px 150px',
+            alignItems: 'center',
+            gap: isMobile ? 10 : 14,
+            padding: isMobile ? '10px 14px' : '12px 20px',
+            borderBottom: `1px solid ${COLORS.border}`,
+            background: '#fbfbfc',
+          }}
+        >
           <span />
           <button onClick={() => toggleSort('name')} style={{ ...sortHeadStyle, textAlign: 'left' }}>
             Party {arrow('name')}
           </button>
-          <button onClick={() => toggleSort('seatsWon')} style={sortHeadStyle}>
-            Seats won {arrow('seatsWon')}
-          </button>
-          <button onClick={() => toggleSort('candidateCount')} style={sortHeadStyle}>
-            Candidates {arrow('candidateCount')}
-          </button>
-          <button onClick={() => toggleSort('caseRate')} style={sortHeadStyle}>
-            Case rate {arrow('caseRate')}
-          </button>
+          {isMobile ? (
+            <button onClick={() => toggleSort('caseRate')} style={sortHeadStyle}>
+              Cases {arrow('caseRate')}
+            </button>
+          ) : (
+            <>
+              <button onClick={() => toggleSort('seatsWon')} style={sortHeadStyle}>
+                Seats won {arrow('seatsWon')}
+              </button>
+              <button onClick={() => toggleSort('candidateCount')} style={sortHeadStyle}>
+                Candidates {arrow('candidateCount')}
+              </button>
+              <button onClick={() => toggleSort('caseRate')} style={sortHeadStyle}>
+                Case rate {arrow('caseRate')}
+              </button>
+            </>
+          )}
         </div>
 
         {sorted.map((p) => (
@@ -90,10 +110,10 @@ export default function PartyLeaderboard({ onSelectParty }) {
             style={{
               width: '100%',
               display: 'grid',
-              gridTemplateColumns: '44px 1fr 160px 130px 150px',
+              gridTemplateColumns: isMobile ? '36px 1fr 56px' : '44px 1fr 160px 130px 150px',
               alignItems: 'center',
-              gap: 14,
-              padding: '12px 20px',
+              gap: isMobile ? 10 : 14,
+              padding: isMobile ? '10px 14px' : '12px 20px',
               borderBottom: `1px solid ${COLORS.divider2}`,
               textAlign: 'left',
               transition: 'background .12s',
@@ -101,23 +121,39 @@ export default function PartyLeaderboard({ onSelectParty }) {
             onMouseEnter={(e) => (e.currentTarget.style.background = COLORS.pageBg)}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <PartyTile partyName={p.name} size={44} />
-            <span style={{ minWidth: 0 }}>
-              <span style={{ fontWeight: 500, fontSize: 14.5, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>
-                {p.name}
-              </span>
-              <span style={{ fontSize: 11.5, color: COLORS.faintest2 }}>{PARTY_SYMBOLS[p.name] ? 'Official symbol' : 'Generated identity'}</span>
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ flex: 1, height: 7, background: COLORS.divider, borderRadius: 4, overflow: 'hidden' }}>
-                <span style={{ display: 'block', height: '100%', background: COLORS.ink2, borderRadius: 4, width: `${(p.seatsWon / maxSeats) * 100}%` }} />
-              </span>
-              <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 600, width: 28, textAlign: 'right' }}>{p.seatsWon}</span>
-            </span>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.ink3, textAlign: 'right', paddingRight: 34 }}>{p.candidateCount}</span>
-            <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <RateChip ratePct={p.caseRate} />
-            </span>
+            <PartyTile partyName={p.name} size={isMobile ? 32 : 44} />
+            {isMobile ? (
+              <>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontWeight: 500, fontSize: 14, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>
+                    {p.name}
+                  </span>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.faintest2 }}>
+                    {p.seatsWon} seats · {p.candidateCount} candidates
+                  </span>
+                </span>
+                <RateChip ratePct={p.caseRate} />
+              </>
+            ) : (
+              <>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontWeight: 500, fontSize: 14.5, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>
+                    {p.name}
+                  </span>
+                  <span style={{ fontSize: 11.5, color: COLORS.faintest2 }}>{PARTY_SYMBOLS[p.name] ? 'Official symbol' : 'Generated identity'}</span>
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <span style={{ flex: 1, height: 7, background: COLORS.divider, borderRadius: 4, overflow: 'hidden' }}>
+                    <span style={{ display: 'block', height: '100%', background: COLORS.ink2, borderRadius: 4, width: `${(p.seatsWon / maxSeats) * 100}%` }} />
+                  </span>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 600, width: 28, textAlign: 'right' }}>{p.seatsWon}</span>
+                </span>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.ink3, textAlign: 'right', paddingRight: 34 }}>{p.candidateCount}</span>
+                <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <RateChip ratePct={p.caseRate} />
+                </span>
+              </>
+            )}
           </button>
         ))}
       </div>

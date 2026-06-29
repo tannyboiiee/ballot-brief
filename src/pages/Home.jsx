@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { COLORS, FONT_MONO, LAYOUT_MAX_WIDTH, severityBadgeStyle, severityLabel, severityDesc } from '../lib/designTokens';
 import { RateChip, SpecialLegislationChip } from '../components/SeverityBadge';
 import PartyTile from '../components/PartyTile';
+import { useIsMobile } from '../lib/useIsMobile';
 
 const EXAMPLES = ['Devraj Naik', 'Kolhapur', 'BJP'];
 
@@ -19,6 +20,7 @@ const STATS = { candidates: '7,515', seats: 543, parties: 68, tiers: 2 };
 export default function Home({ onSearch, onNavigateParties }) {
   const [query, setQuery] = useState('');
   const [topParties, setTopParties] = useState([]);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetch('/api/party-stats')
@@ -41,7 +43,7 @@ export default function Home({ onSearch, onNavigateParties }) {
   const maxSeats = Math.max(1, ...topParties.map((p) => p.seatsWon || 0));
 
   return (
-    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.home, margin: '0 auto', padding: '52px 28px 80px' }}>
+    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.home, margin: '0 auto', padding: isMobile ? '28px 14px 60px' : '52px 28px 80px' }}>
       {/* Hero */}
       <section style={{ maxWidth: 680 }}>
         <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.08em', color: COLORS.faint, textTransform: 'uppercase' }}>
@@ -170,10 +172,10 @@ export default function Home({ onSearch, onNavigateParties }) {
               style={{
                 width: '100%',
                 display: 'grid',
-                gridTemplateColumns: '30px 38px 1fr 116px 132px',
+                gridTemplateColumns: isMobile ? '32px 1fr 64px' : '30px 38px 1fr 116px 132px',
                 alignItems: 'center',
-                gap: 14,
-                padding: '11px 18px',
+                gap: isMobile ? 10 : 14,
+                padding: isMobile ? '10px 14px' : '11px 18px',
                 borderBottom: `1px solid ${COLORS.divider}`,
                 textAlign: 'left',
                 transition: 'background .12s',
@@ -181,19 +183,34 @@ export default function Home({ onSearch, onNavigateParties }) {
               onMouseEnter={(e) => (e.currentTarget.style.background = COLORS.pageBg)}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.faintest2, textAlign: 'right' }}>{i + 1}</span>
-              <PartyTile partyName={p.name} size={38} />
-              <span style={{ fontWeight: 500, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>{p.name}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <span style={{ flex: 1, height: 7, background: COLORS.divider, borderRadius: 4, overflow: 'hidden' }}>
-                  <span style={{ display: 'block', height: '100%', background: COLORS.ink2, borderRadius: 4, width: `${(p.seatsWon / maxSeats) * 100}%` }} />
-                </span>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 600, width: 30, textAlign: 'right' }}>{p.seatsWon}</span>
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                <span style={{ fontSize: 11.5, color: COLORS.faint2 }}>cases</span>
-                <RateChip ratePct={p.caseRate} />
-              </span>
+              {isMobile ? (
+                <>
+                  <PartyTile partyName={p.name} size={32} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontWeight: 500, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>
+                      {p.name}
+                    </span>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.faint2 }}>{p.seatsWon} seats</span>
+                  </span>
+                  <RateChip ratePct={p.caseRate} />
+                </>
+              ) : (
+                <>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.faintest2, textAlign: 'right' }}>{i + 1}</span>
+                  <PartyTile partyName={p.name} size={38} />
+                  <span style={{ fontWeight: 500, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>{p.name}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <span style={{ flex: 1, height: 7, background: COLORS.divider, borderRadius: 4, overflow: 'hidden' }}>
+                      <span style={{ display: 'block', height: '100%', background: COLORS.ink2, borderRadius: 4, width: `${(p.seatsWon / maxSeats) * 100}%` }} />
+                    </span>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 600, width: 30, textAlign: 'right' }}>{p.seatsWon}</span>
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                    <span style={{ fontSize: 11.5, color: COLORS.faint2 }}>cases</span>
+                    <RateChip ratePct={p.caseRate} />
+                  </span>
+                </>
+              )}
             </button>
           ))}
         </div>

@@ -1,8 +1,11 @@
 import { COLORS, FONT_MONO, LAYOUT_MAX_WIDTH } from '../lib/designTokens';
+import { useIsMobile } from '../lib/useIsMobile';
 
 // Sticky global header. `active` is 'home' | 'candidates' | 'parties'.
 // `onNavigate(view)` should drive whatever routing/state switch the app uses.
 export default function Header({ active, onNavigate }) {
+  const isMobile = useIsMobile();
+
   const navItem = (view, label) => {
     const isActive = active === view;
     return (
@@ -10,13 +13,14 @@ export default function Header({ active, onNavigate }) {
         key={view}
         onClick={() => onNavigate(view)}
         style={{
-          fontSize: 14,
+          fontSize: isMobile ? 13 : 14,
           fontWeight: isActive ? 600 : 500,
-          padding: '7px 13px',
+          padding: isMobile ? '6px 9px' : '7px 13px',
           borderRadius: 8,
           color: isActive ? COLORS.accent : COLORS.muted,
           background: isActive ? COLORS.accentTintBg : 'transparent',
           transition: 'color .12s, background .12s',
+          whiteSpace: 'nowrap',
         }}
       >
         {label}
@@ -39,38 +43,41 @@ export default function Header({ active, onNavigate }) {
         style={{
           maxWidth: LAYOUT_MAX_WIDTH.header,
           margin: '0 auto',
-          padding: '13px 28px',
+          padding: isMobile ? '10px 14px' : '13px 28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 24,
+          gap: isMobile ? 8 : 24,
         }}
       >
-        <button onClick={() => onNavigate('home')} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+        <button onClick={() => onNavigate('home')} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 7 : 11, flexShrink: 0 }}>
           <span
             style={{
-              width: 28,
-              height: 28,
+              width: isMobile ? 24 : 28,
+              height: isMobile ? 24 : 28,
               borderRadius: 7,
               background: COLORS.ink,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
-            <span style={{ width: 11, height: 11, borderRadius: 2, border: `2.5px solid ${COLORS.pageBg}` }} />
+            <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: 2, border: `2.5px solid ${COLORS.pageBg}` }} />
           </span>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.05 }}>
-            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: COLORS.ink }}>
+            <span style={{ fontWeight: 700, fontSize: isMobile ? 14 : 15, letterSpacing: '-0.01em', color: COLORS.ink }}>
               Ballot Brief
             </span>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLORS.faint, letterSpacing: '0.04em' }}>
-              LOK SABHA 2024
-            </span>
+            {!isMobile && (
+              <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLORS.faint, letterSpacing: '0.04em' }}>
+                LOK SABHA 2024
+              </span>
+            )}
           </span>
         </button>
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {navItem('home', 'Overview')}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 4, flexShrink: 0 }}>
+          {navItem('home', isMobile ? 'Home' : 'Overview')}
           {navItem('candidates', 'Candidates')}
           {navItem('parties', 'Parties')}
         </nav>

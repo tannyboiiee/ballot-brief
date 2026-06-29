@@ -14,6 +14,7 @@ import { SpecialLegislationChip } from '../components/SeverityBadge';
 import CaseRecord from '../components/CaseRecord';
 import { getOffenceBucketDisplay } from '../lib/offenceBuckets';
 import { classifyAllCases } from '../lib/severity';
+import { useIsMobile } from '../lib/useIsMobile';
 
 function initials(name) {
   return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -43,6 +44,7 @@ function buildContextSentence(cases) {
 // classifyAndAttach() (lib/severity.js) here, right after the fetch, so
 // every downstream component just renders already-classified data.
 export default function CandidateProfile({ candidateId, onBack, showContextCallout = true }) {
+  const isMobile = useIsMobile();
   const [candidate, setCandidate] = useState(null);
   const [caseView, setCaseView] = useState('pending'); // 'pending' | 'convicted'
 
@@ -62,7 +64,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
   const cases = caseView === 'pending' ? pendingCases : convictedCases;
 
   if (!candidate) {
-    return <main style={{ maxWidth: LAYOUT_MAX_WIDTH.profile, margin: '0 auto', padding: '26px 28px 80px' }}>Loading…</main>;
+    return <main style={{ maxWidth: LAYOUT_MAX_WIDTH.profile, margin: '0 auto', padding: isMobile ? '16px 14px 60px' : '26px 28px 80px' }}>Loading…</main>;
   }
 
   const total = cases.length;
@@ -85,7 +87,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
     .slice(0, 6);
 
   return (
-    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.profile, margin: '0 auto', padding: '26px 28px 80px' }}>
+    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.profile, margin: '0 auto', padding: isMobile ? '16px 14px 60px' : '26px 28px 80px' }}>
       <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: COLORS.muted, marginBottom: 20 }}>
         <ArrowLeft size={15} strokeWidth={2} /> All candidates
       </button>
@@ -157,7 +159,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
 
       {/* Summary tiles */}
       {total > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 12, marginTop: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr 1fr', gap: 12, marginTop: 14 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '18px 20px' }}>
             <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.06em', color: COLORS.faint2, textTransform: 'uppercase' }}>Declared cases</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '6px 0 13px' }}>
@@ -182,7 +184,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
 
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.06em', color: COLORS.faint2, textTransform: 'uppercase' }}>Highest tier</div>
-            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, paddingTop: 14 }}>
+            <div style={{ marginTop: isMobile ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 10, paddingTop: 14 }}>
               <span style={{ width: 34, height: 34, borderRadius: 9, ...severityBadgeStyle(highest) }} />
               <span style={{ fontWeight: 600, fontSize: 16, color: COLORS.ink }}>{highest ? severityLabel(highest) : 'Not determinable'}</span>
             </div>
@@ -190,7 +192,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
 
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.06em', color: COLORS.faint2, textTransform: 'uppercase' }}>Special legislation</div>
-            <div style={{ marginTop: 'auto', paddingTop: 14 }}>
+            <div style={{ marginTop: isMobile ? 0 : 'auto', paddingTop: 14 }}>
               {specials > 0 ? (
                 <SpecialLegislationChip label={`${specials} ${specials === 1 ? 'charge' : 'charges'}`} />
               ) : (
@@ -209,7 +211,7 @@ export default function CandidateProfile({ candidateId, onBack, showContextCallo
             {offenceRows.map((off) => {
               const Icon = off.icon;
               return (
-                <div key={off.key} style={{ display: 'grid', gridTemplateColumns: '30px 1fr 150px 34px', alignItems: 'center', gap: 13, padding: '11px 0', borderBottom: `1px solid ${COLORS.divider2}` }}>
+                <div key={off.key} style={{ display: 'grid', gridTemplateColumns: isMobile ? '22px 1fr 70px 26px' : '30px 1fr 150px 34px', alignItems: 'center', gap: isMobile ? 8 : 13, padding: '11px 0', borderBottom: `1px solid ${COLORS.divider2}` }}>
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted }}>
                     <Icon size={17} strokeWidth={1.8} />
                   </span>

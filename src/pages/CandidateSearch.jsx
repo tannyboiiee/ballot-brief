@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { COLORS, FONT_MONO, LAYOUT_MAX_WIDTH } from '../lib/designTokens';
 import CandidateCard from '../components/CandidateCard';
+import { useIsMobile } from '../lib/useIsMobile';
 
 // `initialQuery` lets Home's search box / example chips deep-link in.
 // `onOpenCandidate(id)` navigates to the profile screen.
@@ -15,6 +16,7 @@ export default function CandidateSearch({ initialQuery = '', onOpenCandidate }) 
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setLoading(true);
@@ -28,7 +30,7 @@ export default function CandidateSearch({ initialQuery = '', onOpenCandidate }) 
   }, [query]);
 
   return (
-    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.candidates, margin: '0 auto', padding: '34px 28px 80px' }}>
+    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.candidates, margin: '0 auto', padding: isMobile ? '20px 14px 60px' : '34px 28px 80px' }}>
       <div
         style={{
           display: 'flex',
@@ -54,7 +56,10 @@ export default function CandidateSearch({ initialQuery = '', onOpenCandidate }) 
         {loading ? 'Searching…' : `${results.length} ${results.length === 1 ? 'candidate' : 'candidates'}`}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 14 }}>
+      {/* minmax(330px,...) was forcing a 330px-wide column even on phones
+          narrower than 330px + side padding, which forced the whole grid
+          into horizontal scroll. Single column on mobile instead. */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(330px, 1fr))', gap: 14 }}>
         {results.map((c) => (
           <CandidateCard key={c.id} candidate={c} onOpen={() => onOpenCandidate(c.id)} />
         ))}
