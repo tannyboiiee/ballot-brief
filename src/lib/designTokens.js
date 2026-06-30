@@ -85,12 +85,10 @@ export const SPECIAL_FLAG_STYLE = {
 // ---------- Case-rate intensity chip (party screens) ----------
 // Single warm hue, darker = higher rate.
 export function rateChipStyle(ratePct) {
-  const t = Math.max(0, Math.min(100, ratePct)) / 100;
-  const L = 0.95 - 0.42 * t;
-  const C = 0.025 + 0.11 * t;
+  const isHigh = ratePct >= 40;
   return {
-    background: `oklch(${L.toFixed(3)} ${C.toFixed(3)} 52)`,
-    color: t > 0.45 ? 'oklch(0.98 0.02 60)' : 'oklch(0.4 0.09 50)',
+    background: isHigh ? 'oklch(0.5 0.18 25)' : 'oklch(0.62 0.15 50)', // red above 40%, orange below
+    color: '#ffffff',
   };
 }
 
