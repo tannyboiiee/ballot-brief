@@ -156,7 +156,7 @@ export default function Home({ onSearch, onNavigateParties }) {
         </div>
       </section>
 
-      {/* Parties by seats won */}
+      {/* Criminals in parties by seats won */}
       <section style={{ marginTop: 54 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
           <h2 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: COLORS.ink }}>Parties by seats won</h2>
