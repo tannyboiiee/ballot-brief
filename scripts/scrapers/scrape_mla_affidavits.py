@@ -72,9 +72,15 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 @dataclass
 class Candidate:
-    candidate_id: str
+    candidate_id: str          # NAMESPACED, e.g. "TamilNadu2026-2070" — never the raw MyNeta id.
+                                # raw MyNeta candidate_ids reset per state-year, so using them bare
+                                # risks silently colliding with/overwriting existing LS rows that
+                                # happen to share the same number.
+    raw_myneta_id: str         # original numeric id from the URL, kept for reference/debugging
     yearkey: str
     state: str
+    election_type: str = "MLA"     # 'LS' | 'MLA' — lets queries filter MPs vs MLAs
+    election_year: int = 2026
     name: str = ""
     party: str = ""
     constituency: str = ""
@@ -85,6 +91,7 @@ class Candidate:
     education: str = ""
     age: str = ""
     source_url: str = ""
+
 
 
 # ---------------------------------------------------------------------------
@@ -180,10 +187,16 @@ def get_candidate_ids(yearkey: str) -> list[tuple[str, str]]:
 # Step 2: parse an individual candidate affidavit page
 # ---------------------------------------------------------------------------
 
-def parse_candidate_page(html: str, candidate_id: str, yearkey: str, state: str, url: str,
+def parse_candidate_page(html: str, raw_id: str, yearkey: str, state: str, url: str,
                           constituency_hint: str = "") -> Candidate:
     soup = BeautifulSoup(html, "lxml")
-    c = Candidate(candidate_id=candidate_id, yearkey=yearkey, state=state,
+
+    namespaced_id = f"{yearkey}-{raw_id}"
+    year_match = re.search(r"(\d{4})$", yearkey)
+    election_year = int(year_match.group(1)) if year_match else 2026
+
+    c = Candidate(candidate_id=namespaced_id, raw_myneta_id=raw_id, yearkey=yearkey, state=state,
+                  election_type="MLA", election_year=election_year,
                   source_url=url, constituency=constituency_hint)
 
     # --- Name / party / constituency from the page title or header ---
