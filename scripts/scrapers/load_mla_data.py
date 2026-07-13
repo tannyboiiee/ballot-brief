@@ -37,23 +37,34 @@ def escape_sql(value) -> str:
 
 
 def parse_rupee_label(label: str) -> int | None:
-    """Best-effort parse of MyNeta-style rupee labels like '11 Crore+',
-    '55 Lakh+', '2,50,000' into an integer rupee value. Returns None if it
-    can't confidently parse — leave total_*_rupees NULL rather than guess."""
+    """Best-effort parse of MyNeta-style rupee labels into an integer rupee
+    value. Handles: 'Rs 10,83,267 ~10 Lacs+' (real format confirmed against
+    a live candidate page), 'Nil', plain '11 Crore+' / '55 Lakh+' shorthand,
+    and raw comma-separated numbers. Returns None if it can't confidently
+    parse — leave total_*_rupees NULL rather than guess."""
     if not label:
         return None
 
     label = label.strip()
+    if label.lower() == "nil":
+        return 0
+
+    # "Rs 10,83,267 ~10 Lacs+" — take the exact figure before the ~ shorthand
+    rs_match = re.match(r"Rs\.?\s*([\d,]+)", label, re.I)
+    if rs_match:
+        return int(rs_match.group(1).replace(",", ""))
+
     # plain number with commas, e.g. "2,50,000"
     if re.fullmatch(r"[\d,]+", label):
         return int(label.replace(",", ""))
 
-    # "<number> Crore/Lakh/Thousand[+]" style
-    m = re.match(r"([\d.]+)\s*(Crore|Lakh|Thousand)", label, re.I)
+    # "<number> Crore/Lakh/Thousand[+]" shorthand only, e.g. "11 Crore+"
+    m = re.match(r"([\d.]+)\s*(Crore|Lakh|Lacs?|Thousand)", label, re.I)
     if m:
         amount = float(m.group(1))
-        unit = m.group(2).lower()
-        multiplier = {"crore": 10_000_000, "lakh": 100_000, "thousand": 1_000}[unit]
+        unit = m.group(2).lower().rstrip("s")
+        multiplier = {"crore": 10_000_000, "lakh": 100_000, "lac": 100_000,
+                      "thousand": 1_000}[unit]
         return int(amount * multiplier)
 
     return None
@@ -69,7 +80,7 @@ def candidate_to_insert_sql(c: dict) -> str:
 
     columns = [
         "candidate_id", "name", "is_winner", "party", "state", "constituency",
-        "age", "total_assets_rupees", "total_assets_label",
+        "age", "photo_url", "total_assets_rupees", "total_assets_label",
         "total_liabilities_rupees", "total_liabilities_label",
         "criminal_case_count", "election_type", "election_year",
     ]
@@ -81,6 +92,7 @@ def candidate_to_insert_sql(c: dict) -> str:
         escape_sql(c.get("state")),
         escape_sql(c.get("constituency")),
         escape_sql(c.get("age")) if not str(c.get("age", "")).isdigit() else c["age"],
+        escape_sql(c.get("photo_url")),
         total_assets_rupees if total_assets_rupees is not None else "NULL",
         escape_sql(c.get("total_assets")),
         total_liabilities_rupees if total_liabilities_rupees is not None else "NULL",
@@ -96,6 +108,72 @@ def candidate_to_insert_sql(c: dict) -> str:
     # INSERT OR IGNORE so re-running this file after a partial apply doesn't
     # error out on already-inserted candidate_ids.
     return f"INSERT OR IGNORE INTO candidates ({col_str}) VALUES ({val_str});"
+
+
+def pending_cases_to_insert_sql(candidate_id: str, cases: list) -> list[str]:
+    statements = []
+    for case in cases:
+        columns = ["candidate_id", "serial_no", "fir_no", "case_no", "court",
+                   "ipc_sections_applicable", "other_acts", "charges_framed",
+                   "charges_framed_date", "appeal_filed", "appeal_status"]
+        values = [
+            escape_sql(candidate_id),
+            escape_sql(case.get("serial_no")),
+            escape_sql(case.get("fir_no")),
+            escape_sql(case.get("case_no")),
+            escape_sql(case.get("court")),
+            escape_sql(case.get("ipc_sections_applicable")),
+            escape_sql(case.get("other_acts")),
+            escape_sql(case.get("charges_framed")),
+            escape_sql(case.get("charges_framed_date")),
+            escape_sql(case.get("appeal_filed")),
+            escape_sql(case.get("appeal_status")),
+        ]
+        col_str = ", ".join(columns)
+        val_str = ", ".join(str(v) for v in values)
+        statements.append(f"INSERT INTO pending_cases ({col_str}) VALUES ({val_str});")
+    return statements
+
+
+def convicted_cases_to_insert_sql(candidate_id: str, cases: list) -> list[str]:
+    statements = []
+    for case in cases:
+        columns = ["candidate_id", "serial_no", "case_no", "court",
+                   "ipc_sections_applicable", "other_acts", "punishment_imposed",
+                   "convicted_date", "appeal_filed", "appeal_status"]
+        values = [
+            escape_sql(candidate_id),
+            escape_sql(case.get("serial_no")),
+            escape_sql(case.get("case_no")),
+            escape_sql(case.get("court")),
+            escape_sql(case.get("ipc_sections_applicable")),
+            escape_sql(case.get("other_acts")),
+            escape_sql(case.get("punishment_imposed")),
+            escape_sql(case.get("convicted_date")),
+            escape_sql(case.get("appeal_filed")),
+            escape_sql(case.get("appeal_status")),
+        ]
+        col_str = ", ".join(columns)
+        val_str = ", ".join(str(v) for v in values)
+        statements.append(f"INSERT INTO convicted_cases ({col_str}) VALUES ({val_str});")
+    return statements
+
+
+def ipc_bns_charges_to_insert_sql(candidate_id: str, charges: list) -> list[str]:
+    statements = []
+    for charge in charges:
+        columns = ["candidate_id", "code_type", "section", "description", "charge_count"]
+        values = [
+            escape_sql(candidate_id),
+            escape_sql(charge.get("code_type")),
+            escape_sql(charge.get("section")),
+            escape_sql(charge.get("description")),
+            charge.get("charge_count", 0),
+        ]
+        col_str = ", ".join(columns)
+        val_str = ", ".join(str(v) for v in values)
+        statements.append(f"INSERT INTO ipc_bns_charges ({col_str}) VALUES ({val_str});")
+    return statements
 
 
 def main():
@@ -118,6 +196,7 @@ def main():
 
     all_statements = []
     total_candidates = 0
+    all_candidate_ids = []
 
     for path in input_files:
         p = Path(path)
@@ -130,8 +209,27 @@ def main():
 
         print(f"[load] {path}: {len(candidates)} candidates")
         for c in candidates:
+            cid = c["candidate_id"]
+            all_candidate_ids.append(cid)
             all_statements.append(candidate_to_insert_sql(c))
+            all_statements.extend(pending_cases_to_insert_sql(cid, c.get("pending_cases", [])))
+            all_statements.extend(convicted_cases_to_insert_sql(cid, c.get("convicted_cases", [])))
+            all_statements.extend(ipc_bns_charges_to_insert_sql(cid, c.get("ipc_bns_charges", [])))
         total_candidates += len(candidates)
+
+    # Child tables (pending_cases, convicted_cases, ipc_bns_charges) use
+    # AUTOINCREMENT ids with no natural unique key, so plain re-running this
+    # file would duplicate every row. Prepend deletes scoped to just this
+    # batch's candidate_ids so re-applying the file is safe — candidates
+    # itself stays untouched since it uses INSERT OR IGNORE separately.
+    delete_statements = []
+    if all_candidate_ids:
+        id_list = ", ".join(escape_sql(cid) for cid in all_candidate_ids)
+        for table in ("pending_cases", "convicted_cases", "ipc_bns_charges"):
+            delete_statements.append(
+                f"DELETE FROM {table} WHERE candidate_id IN ({id_list});"
+            )
+    all_statements = delete_statements + all_statements
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

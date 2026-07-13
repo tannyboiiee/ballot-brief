@@ -91,6 +91,10 @@ class Candidate:
     education: str = ""
     age: str = ""
     source_url: str = ""
+    photo_url: str = ""
+    pending_cases: list = field(default_factory=list)      # list of dicts, maps to pending_cases table
+    convicted_cases: list = field(default_factory=list)    # list of dicts, maps to convicted_cases table
+    ipc_bns_charges: list = field(default_factory=list)    # list of dicts, maps to ipc_bns_charges table
 
 
 
@@ -183,8 +187,54 @@ def get_candidate_ids(yearkey: str) -> list[tuple[str, str]]:
     return candidate_ids
 
 
+def find_table_after_heading(soup: BeautifulSoup, heading_pattern: str):
+    """Find a heading-ish element whose text matches heading_pattern, then
+    return the next <table> encountered after it in document order."""
+    heading = soup.find(string=re.compile(heading_pattern, re.I))
+    if not heading:
+        return None
+    node = heading if hasattr(heading, "find_next") else heading.find_parent()
+    if node is None:
+        return None
+    return node.find_next("table")
+
+
+def parse_table_rows(table) -> list[list[str]]:
+    """Return each row of a <table> as a list of cell texts, dropping a
+    leading header row if one is detected (contains 'Serial No')."""
+    if table is None:
+        return []
+    rows = []
+    for tr in table.find_all("tr"):
+        cells = [td.get_text(" ", strip=True) for td in tr.find_all(["td", "th"])]
+        if cells:
+            rows.append(cells)
+    if rows and any("Serial No" in cell for cell in rows[0]):
+        rows = rows[1:]
+    return rows
+
+
+def is_empty_case_row(row: list[str]) -> bool:
+    joined = " ".join(row)
+    return (not row) or ("No Cases" in joined) or (joined.strip() == "")
+
+
+def fix_known_typos(text: str) -> str:
+    """MyNeta's underlying affidavit transcriptions occasionally have typos
+    in the word 'Section' (e.g. 'Sectioin', 'Sectioni') — confirmed on a
+    real candidate page. This corrects only these specific, observed
+    misspellings; it does not touch case numbers, dates, or any other
+    substantive content, since those should be preserved verbatim even if
+    the source has an error."""
+    if not text:
+        return text
+    for typo in ("Sectioin", "Sectioni", "Sectoin"):
+        text = re.sub(typo, "Section", text, flags=re.I)
+    return text
+
+
 # ---------------------------------------------------------------------------
-# Step 2: parse an individual candidate affidavit page
+# Step 2b: parse an individual candidate affidavit page
 # ---------------------------------------------------------------------------
 
 def parse_candidate_page(html: str, raw_id: str, yearkey: str, state: str, url: str,
@@ -199,9 +249,16 @@ def parse_candidate_page(html: str, raw_id: str, yearkey: str, state: str, url: 
                   election_type="MLA", election_year=election_year,
                   source_url=url, constituency=constituency_hint)
 
-    # --- Name / party / constituency from the page title or header ---
-    # MyNeta candidate pages typically have a title like:
-    # "NAME(PARTY):Constituency- CONSTITUENCY(DISTRICT)"
+    # Flattened, whitespace-normalized full page text. Verified against a real
+    # candidate page — MyNeta's fields here are inline text ("Age: 45",
+    # "Assets: Rs 10,83,267 ~10 Lacs+"), not clean <tr><td> pairs, so regexing
+    # the flat text is more reliable than table-row lookups.
+    text = soup.get_text(" ", strip=True)
+
+    # --- Name / party / constituency from the page title ---
+    # Title format: "NAME(PARTY):Constituency- CONSTITUENCY(DISTRICT) - Affidavit
+    # Information of Candidate:" — the trailing " - Affidavit Information..."
+    # needs stripping off the constituency capture.
     title_tag = soup.find("title")
     if title_tag:
         title_text = title_tag.get_text(strip=True)
@@ -209,62 +266,135 @@ def parse_candidate_page(html: str, raw_id: str, yearkey: str, state: str, url: 
         if name_match:
             c.name = name_match.group(1).strip()
             c.party = name_match.group(2).strip()
+            constituency_raw = re.split(r"\s*-\s*Affidavit Information of Candidate",
+                                         name_match.group(3))[0].strip()
             if not c.constituency:
-                c.constituency = name_match.group(3).strip()
+                c.constituency = constituency_raw
+
+    # --- Age --- appears inline as "Age: 45"
+    age_match = re.search(r"Age:\s*(\d+)", text)
+    if age_match:
+        c.age = age_match.group(1)
+
+    # --- Photo ---
+    # Confirmed pattern: https://myneta.info/images_candidate/<yearkey>/<hash>.jpg
+    photo_img = soup.find("img", src=re.compile(r"images_candidate", re.I))
+    if photo_img:
+        src = photo_img.get("src", "")
+        if src.startswith("//"):
+            src = "https:" + src
+        elif src.startswith("/"):
+            src = BASE_URL + src
+        c.photo_url = src
 
     # --- Criminal cases ---
-    # Look for a section header mentioning "Criminal" and count case rows /
-    # extract IPC/BNS section references near it. This is intentionally
-    # loose since the exact table structure needs to be confirmed live.
-    criminal_header = soup.find(string=re.compile(r"Criminal Case", re.I))
-    if criminal_header:
-        container = criminal_header.find_parent(["table", "div"])
-        if container:
-            text_block = container.get_text(" ", strip=True)
-            # count of declared cases — look for "Case No" occurrences or
-            # an explicit "Total no of cases" figure
-            case_count_match = re.search(r"(\d+)\s+Cases?\s+Registered", text_block, re.I)
-            if case_count_match:
-                c.criminal_cases_declared = int(case_count_match.group(1))
+    if re.search(r"No criminal cases", text, re.I):
+        c.criminal_cases_declared = 0
+        c.criminal_case_sections = []
+    else:
+        # The page states this explicitly ("Number of Criminal Cases: 32") —
+        # confirmed against a real candidate with multiple cases. Trust this
+        # over any counting heuristic when present.
+        count_label_match = re.search(r"Number of Criminal Cases:\s*(\d+)", text)
+        if count_label_match:
+            c.criminal_cases_declared = int(count_label_match.group(1))
+        else:
+            case_no_hits = re.findall(r"Case No\.?\s*[:\-]?\s*(\S+)", text)
+            c.criminal_cases_declared = len(set(case_no_hits)) if case_no_hits else 0
 
-            # pull IPC/BNS-style section references, e.g. "IPC-379", "BNS Section 303"
-            sections = re.findall(r"(?:IPC|BNS)[\s\-]*(?:Section)?\s*[\-]?\s*(\d+[A-Za-z]?)",
-                                   text_block)
-            c.criminal_case_sections = sorted(set(sections))
+        # Charge-level breakdown with counts and descriptions — feeds
+        # ipc_bns_charges table directly. Confirmed format: "7  charges
+        # related to <description> (IPC Section-269)". This block is
+        # isolated enough (requires the "charges related to" phrase) that
+        # it doesn't false-match the pending-cases table, unlike scanning
+        # the whole flattened page for "IPC Section-X" — that pattern
+        # accidentally matches when a table's "IPC" law-type cell sits next
+        # to an unrelated "Section 4(1) of TNOPPD Act" cell once flattened.
+        charge_matches = re.findall(
+            r"(\d+)\s*charges?\s*related to\s*(.*?)\s*\((IPC|BNS)\s*Section[\s\-]*"
+            r"(\d+[A-Za-z]?(?:\(\d+\))?)\)",
+            text
+        )
+        c.ipc_bns_charges = [
+            {
+                "code_type": code_type,
+                "section": section,
+                "description": desc.strip(),
+                "charge_count": int(count),
+            }
+            for count, desc, code_type, section in charge_matches
+        ]
+        # derive the flat summary list from the structured breakdown above,
+        # rather than re-scanning raw text
+        c.criminal_case_sections = sorted({item["section"] for item in c.ipc_bns_charges})
 
-    # --- Assets / liabilities ---
-    assets_label = soup.find(string=re.compile(r"Total Assets", re.I))
-    if assets_label:
-        row = assets_label.find_parent("tr")
-        if row:
-            cells = row.find_all("td")
-            if cells:
-                c.total_assets = cells[-1].get_text(strip=True)
+    # --- Pending cases table ---
+    pending_table = find_table_after_heading(soup, r"Cases where Pending")
+    for row in parse_table_rows(pending_table):
+        if is_empty_case_row(row):
+            continue
+        row = row + [""] * (11 - len(row))  # defensive pad
+        (serial_no, fir_no, case_no, court, law_type, ipc_sections, other_acts,
+         charges_framed, charges_framed_date, appeal_filed, appeal_status) = row[:11]
+        sections_combined = " ".join(x for x in [law_type, ipc_sections] if x).strip()
+        other_acts = fix_known_typos(other_acts)
+        c.pending_cases.append({
+            "serial_no": serial_no,
+            "fir_no": fir_no,
+            "case_no": case_no,
+            "court": court,
+            "ipc_sections_applicable": sections_combined,
+            "other_acts": other_acts,
+            "charges_framed": charges_framed,
+            "charges_framed_date": charges_framed_date,
+            "appeal_filed": appeal_filed,
+            "appeal_status": appeal_status,
+        })
 
-    liabilities_label = soup.find(string=re.compile(r"Total Liabilities", re.I))
-    if liabilities_label:
-        row = liabilities_label.find_parent("tr")
-        if row:
-            cells = row.find_all("td")
-            if cells:
-                c.total_liabilities = cells[-1].get_text(strip=True)
+    # --- Convicted cases table --- (same shape, minus FIR No.)
+    convicted_table = find_table_after_heading(soup, r"Cases where Convicted")
+    for row in parse_table_rows(convicted_table):
+        if is_empty_case_row(row):
+            continue
+        row = row + [""] * (10 - len(row))  # defensive pad
+        (serial_no, case_no, court, law_type, ipc_sections, other_acts,
+         punishment_imposed, convicted_date, appeal_filed, appeal_status) = row[:10]
+        sections_combined = " ".join(x for x in [law_type, ipc_sections] if x).strip()
+        other_acts = fix_known_typos(other_acts)
+        c.convicted_cases.append({
+            "serial_no": serial_no,
+            "case_no": case_no,
+            "court": court,
+            "ipc_sections_applicable": sections_combined,
+            "other_acts": other_acts,
+            "punishment_imposed": punishment_imposed,
+            "convicted_date": convicted_date,
+            "appeal_filed": appeal_filed,
+            "appeal_status": appeal_status,
+        })
 
-    # --- Education / age ---
-    edu_label = soup.find(string=re.compile(r"Education", re.I))
-    if edu_label:
-        row = edu_label.find_parent("tr")
-        if row:
-            cells = row.find_all("td")
-            if cells:
-                c.education = cells[-1].get_text(strip=True)
+    # --- Assets / Liabilities --- top summary block: "Assets: Rs 10,83,267
+    # ~10 Lacs+" / "Liabilities: Nil". Note the label is "Assets:"/"Liabilities:",
+    # not "Total Assets" — that was the bug in the original version.
+    assets_match = re.search(r"Assets:\s*(Rs\s*[\d,]+|Nil)\s*(~[^|]*?)?(?=Liabilities|$)", text)
+    if assets_match:
+        val = assets_match.group(1).strip()
+        extra = (assets_match.group(2) or "").strip()
+        c.total_assets = f"{val} {extra}".strip()
 
-    age_label = soup.find(string=re.compile(r"^\s*Age\s*$", re.I))
-    if age_label:
-        row = age_label.find_parent("tr")
-        if row:
-            cells = row.find_all("td")
-            if cells:
-                c.age = cells[-1].get_text(strip=True)
+    liab_match = re.search(r"Liabilities:\s*(Rs\s*[\d,]+|Nil)\s*(~[^|]*?)?(?=Educational|$)", text)
+    if liab_match:
+        val = liab_match.group(1).strip()
+        extra = (liab_match.group(2) or "").strip()
+        c.total_liabilities = f"{val} {extra}".strip()
+
+    # --- Education --- "Educational Details ... Category: <text> ... Details of PAN"
+    edu_match = re.search(
+        r"Educational Details\s*-*\s*Category:\s*(.*?)(?:Details of PAN|Details of Criminal)",
+        text, re.S
+    )
+    if edu_match:
+        c.education = edu_match.group(1).strip()[:300]  # cap length, can run long
 
     return c
 
@@ -322,6 +452,10 @@ def _write_outputs(results: list[Candidate], out_csv: Path, out_json: Path):
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump([asdict(r) for r in results], f, ensure_ascii=False, indent=2)
 
+    # CSV can't hold nested structures — the case/charge tables get flattened
+    # to JSON strings here for spreadsheet-friendliness, but load_mla_data.py
+    # reads from the .json file, not this .csv, when populating the
+    # pending_cases / convicted_cases / ipc_bns_charges tables.
     if results:
         with open(out_csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=list(asdict(results[0]).keys()))
@@ -329,6 +463,9 @@ def _write_outputs(results: list[Candidate], out_csv: Path, out_json: Path):
             for r in results:
                 row = asdict(r)
                 row["criminal_case_sections"] = ";".join(row["criminal_case_sections"])
+                row["pending_cases"] = json.dumps(row["pending_cases"], ensure_ascii=False)
+                row["convicted_cases"] = json.dumps(row["convicted_cases"], ensure_ascii=False)
+                row["ipc_bns_charges"] = json.dumps(row["ipc_bns_charges"], ensure_ascii=False)
                 writer.writerow(row)
 
 
