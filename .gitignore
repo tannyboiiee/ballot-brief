@@ -11,3 +11,5 @@ output/
 *.sqlite
 *.db
 __pycache__/
+
+migrations/*_load_*.sql
