@@ -53,7 +53,7 @@ STATE_YEARKEYS = {
     "Puducherry2026": {"state": "Puducherry", "seats_hint": 30},
 }
 
-REQUEST_DELAY_SECONDS = 1.5
+REQUEST_DELAY_SECONDS = 0.5  # matches the proven LS scraper's validated pace
 REQUEST_TIMEOUT = 20
 MAX_RETRIES = 3
 RETRY_BACKOFF = 5
@@ -120,71 +120,159 @@ def fetch(url: str) -> requests.Response | None:
 # Step 1: enumerate candidate IDs for a state election
 # ---------------------------------------------------------------------------
 
-def get_candidate_ids(yearkey: str) -> list[tuple[str, str]]:
+def discover_true_constituency_ids(yearkey: str, max_probe: int = 260) -> list[int]:
     """
-    Returns list of (candidate_id, constituency) tuples for a given
-    state-year key, by walking the summary/candidates_analyzed page(s).
+    Probe constituency_id=1..max_probe against the show_candidates
+    endpoint directly — NOT show_constituencies&state_id, which was
+    conclusively proven incomplete: a direct fetch of Bodinayakkanur
+    (constituency_id=164) returned 14-15 real, fully-populated candidate
+    rows, while THENI's entire district-level page (state_id=22) reported
+    only 18 candidates total for all 4 of its constituencies combined —
+    Andipatti alone (from an earlier screenshot) already had 15+. The
+    district-level endpoint silently drops most of a district's data;
+    the constituency-level endpoint returned complete, correct data on
+    first try. Tamil Nadu has 234 real assembly constituencies, so
+    max_probe needs to comfortably clear that.
+    """
+    valid = []
+    for cid in range(1, max_probe + 1):
+        url = f"{BASE_URL}/{yearkey}/index.php?action=show_candidates&constituency_id={cid}"
+        resp = fetch(url)
+        ok = False
+        if resp is not None:
+            ok = bool(re.search(r"candidate\.php\?candidate_id=\d+", resp.text))
+        if not ok:
+            time.sleep(3.0)
+            resp = fetch(url)
+            if resp is not None:
+                ok = bool(re.search(r"candidate\.php\?candidate_id=\d+", resp.text))
+        if ok:
+            valid.append(cid)
+        if cid % 25 == 0:
+            print(f"  probed {cid}/{max_probe} constituency_ids so far, {len(valid)} valid found")
+        time.sleep(REQUEST_DELAY_SECONDS)
+    return valid
 
-    MyNeta's summary listing is typically paginated. We follow numbered
-    pages until we stop finding new candidate links.
+
+def extract_total_pages(html: str) -> int | None:
     """
-    candidate_ids = []
+    Reads the authoritative last-page number from the 'Last' pagination
+    link's href (a real URL parameter) rather than parsing rendered
+    "Showing page X of Y" text — ported directly from the proven LS
+    scraper, which found the rendered text unreliable (page 1 omits its
+    own page number entirely; bold/asterisk formatting varies).
+    Returns None if there's no 'Last' link (single-page listing, which
+    is the common case at constituency level — most seats have well
+    under a page's worth of candidates).
+    """
+    soup = BeautifulSoup(html, "lxml")
+    last_link = soup.find("a", string=re.compile(r"^\s*Last\s*$", re.I))
+    if last_link and last_link.get("href"):
+        m = re.search(r"page=(\d+)", last_link["href"])
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def parse_constituency_listing_page(html: str, seen_ids: set) -> list[tuple[str, str]]:
+    """Parse one page of a constituency's candidate listing table. Returns
+    new (candidate_id, constituency_hint) tuples not already in seen_ids.
+    Table columns confirmed via real fetch of Bodinayakkanur: Sno |
+    Candidate | Party | Criminal Cases | Education | Age | Total Assets |
+    Liabilities — candidate name+link lives in cells[1]."""
+    soup = BeautifulSoup(html, "lxml")
+    new_rows = []
+    for tr in soup.find_all("tr"):
+        cells = tr.find_all("td")
+        if len(cells) < 4:
+            continue
+        link = cells[1].find("a", href=re.compile(r"candidate\.php\?candidate_id=\d+"))
+        if not link:
+            continue
+        cid_m = re.search(r"candidate_id=(\d+)", link["href"])
+        if not cid_m:
+            continue
+        cid = cid_m.group(1)
+        if cid in seen_ids:
+            continue
+        seen_ids.add(cid)
+        new_rows.append((cid, ""))  # constituency name comes from the candidate page itself
+    return new_rows
+
+
+def scrape_true_constituency_listing(yearkey: str, constituency_id: int) -> tuple[list, int | None]:
+    """Yield every candidate in one real constituency, across all its
+    pages (usually just one — constituency-level candidate counts are
+    small, ~15-30, unlike the district-level aggregates this replaces),
+    using the authoritative page count from extract_total_pages() rather
+    than stopping on the first empty page."""
+    results = []
     seen_ids = set()
     page = 1
+    total_pages = None
 
     while True:
-        # NOTE: exact query params may need adjustment — verify against
-        # a real page load. This mirrors the pattern used for LS summary
-        # pages (action=summary&subAction=candidates_analyzed).
-        url = (
-            f"{BASE_URL}/{yearkey}/index.php"
-            f"?action=summary&subAction=candidates_analyzed&sort=candidate&pageno={page}"
-        )
-        print(f"[list] fetching page {page}: {url}")
+        url = (f"{BASE_URL}/{yearkey}/index.php?action=show_candidates"
+               f"&constituency_id={constituency_id}")
+        if page > 1:
+            url += f"&page={page}"
+
         resp = fetch(url)
         if resp is None:
             break
 
-        soup = BeautifulSoup(resp.text, "lxml")
-        links = soup.select("a[href*='candidate.php?candidate_id=']")
+        new_rows = parse_constituency_listing_page(resp.text, seen_ids)
+        if total_pages is None:
+            total_pages = extract_total_pages(resp.text)
 
-        new_this_page = 0
-        for a in links:
-            m = re.search(r"candidate_id=(\d+)", a.get("href", ""))
-            if not m:
-                continue
-            cid = m.group(1)
-            if cid in seen_ids:
-                continue
-            seen_ids.add(cid)
+        if not new_rows:
+            for retry_attempt in range(3):
+                time.sleep(2.0 * (retry_attempt + 1))
+                resp = fetch(url)
+                if resp is None:
+                    continue
+                new_rows = parse_constituency_listing_page(resp.text, seen_ids)
+                if total_pages is None:
+                    total_pages = extract_total_pages(resp.text)
+                if new_rows:
+                    break
 
-            # try to grab constituency from the same table row
-            constituency = ""
-            row = a.find_parent("tr")
-            if row:
-                cells = row.find_all("td")
-                if len(cells) > 1:
-                    constituency = cells[1].get_text(strip=True)
+        results.extend(new_rows)
 
-            candidate_ids.append((cid, constituency))
-            new_this_page += 1
-
-        print(f"  found {new_this_page} new candidates (total so far: {len(candidate_ids)})")
-
-        if new_this_page == 0:
+        if total_pages is not None:
+            if page >= total_pages:
+                break
+        elif not new_rows:
             break
 
         page += 1
         time.sleep(REQUEST_DELAY_SECONDS)
 
-        # safety valve — no state should have more than ~40 pages at
-        # reasonable page sizes; bail rather than loop forever if the
-        # pagination param isn't actually working.
-        if page > 60:
-            print("  [warn] hit page safety limit, stopping enumeration")
-            break
+    return results, total_pages
 
-    return candidate_ids
+
+def get_candidate_ids(yearkey: str) -> list[tuple[str, str]]:
+    """
+    Full candidate enumeration for one state-year: discover valid
+    constituency_ids directly (up to 234 for Tamil Nadu), then walk each
+    one's paginated listing via show_candidates. This replaces an earlier
+    district-level (show_constituencies&state_id) approach that was
+    conclusively proven incomplete via a direct side-by-side fetch.
+    """
+    print(f"[list] discovering constituency ids for {yearkey}...")
+    constituency_ids = discover_true_constituency_ids(yearkey)
+    print(f"[list] found {len(constituency_ids)} constituencies "
+          f"(Tamil Nadu has 234 — should be close to that)")
+
+    all_candidates = []
+    for i, cid in enumerate(constituency_ids, 1):
+        rows, total_pages = scrape_true_constituency_listing(yearkey, cid)
+        all_candidates.extend(rows)
+        print(f"[list] constituency {i}/{len(constituency_ids)} (constituency_id={cid}): "
+              f"{len(rows)} candidates, {total_pages or 1} page(s), "
+              f"running total {len(all_candidates)}")
+
+    return all_candidates
 
 
 def find_table_after_heading(soup: BeautifulSoup, heading_pattern: str):
@@ -496,6 +584,10 @@ def main():
     parser.add_argument("--all", action="store_true", help="Scrape all 5 states")
     parser.add_argument("--test-one", metavar="CANDIDATE_ID",
                          help="Fetch+parse a single candidate_id for testing (requires --state)")
+    parser.add_argument("--list-only", action="store_true",
+                         help="Run just the candidate enumeration (discover districts, count "
+                              "candidates per district) without fetching any candidate detail "
+                              "pages. Fast — use this to verify enumeration before a full run.")
     args = parser.parse_args()
 
     if args.test_one:
@@ -503,6 +595,19 @@ def main():
             print("--test-one requires --state")
             sys.exit(1)
         test_one(args.state, args.test_one)
+        return
+
+    if args.list_only:
+        if not args.state:
+            print("--list-only requires --state")
+            sys.exit(1)
+        candidate_refs = get_candidate_ids(args.state)
+        print(f"\n[list-only] Total candidates found for {args.state}: {len(candidate_refs)}")
+        expected = STATE_YEARKEYS[args.state].get("seats_hint")
+        if expected:
+            print(f"[list-only] Sanity check: {expected} seats, so expect roughly "
+                  f"{expected * 5}-{expected * 15} candidates.")
+        print(f"[list-only] Sample candidate_ids: {[c for c, _ in candidate_refs[:10]]}")
         return
 
     if args.all:
