@@ -258,11 +258,26 @@ def get_candidate_ids(yearkey: str) -> list[tuple[str, str]]:
     one's paginated listing via show_candidates. This replaces an earlier
     district-level (show_constituencies&state_id) approach that was
     conclusively proven incomplete via a direct side-by-side fetch.
+
+    Caches the discovered constituency_id list to disk (constituency_ids
+    are a fixed property of an election, not something that changes
+    between runs) so re-running the scraper — e.g. to pick up a handful
+    of missing/failed candidates — doesn't repay the ~4 minute discovery
+    probe every single time. Delete the cache file to force rediscovery.
     """
-    print(f"[list] discovering constituency ids for {yearkey}...")
-    constituency_ids = discover_true_constituency_ids(yearkey)
-    print(f"[list] found {len(constituency_ids)} constituencies "
-          f"(Tamil Nadu has 234 — should be close to that)")
+    cache_path = OUTPUT_DIR / f"{yearkey}_constituency_ids_cache.json"
+    if cache_path.exists():
+        with open(cache_path, "r", encoding="utf-8") as f:
+            constituency_ids = json.load(f)
+        print(f"[list] using cached constituency ids ({len(constituency_ids)} found) "
+              f"from {cache_path} — delete this file to force rediscovery")
+    else:
+        print(f"[list] discovering constituency ids for {yearkey}...")
+        constituency_ids = discover_true_constituency_ids(yearkey)
+        print(f"[list] found {len(constituency_ids)} constituencies "
+              f"(Tamil Nadu has 234 — should be close to that)")
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(constituency_ids, f)
 
     all_candidates = []
     for i, cid in enumerate(constituency_ids, 1):
@@ -511,7 +526,12 @@ def scrape_state(yearkey: str):
           f"(expected roughly {meta['seats_hint']}x8-15)")
 
     results = list(existing.values())
-    todo = [(cid, con) for cid, con in candidate_refs if cid not in existing]
+    # candidate_refs holds RAW myneta ids (e.g. "1148"), but `existing` is
+    # keyed by the NAMESPACED candidate_id (e.g. "TamilNadu2026-1148") that
+    # parse_candidate_page() constructs. Comparing raw against namespaced
+    # directly always fails, which silently broke resume — every run
+    # re-fetched everything regardless of what was already checkpointed.
+    todo = [(cid, con) for cid, con in candidate_refs if f"{yearkey}-{cid}" not in existing]
     print(f"[fetch] {len(todo)} candidates to fetch ({len(existing)} skipped as already done)")
 
     for i, (cid, constituency) in enumerate(todo, 1):
