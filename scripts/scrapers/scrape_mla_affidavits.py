@@ -107,6 +107,16 @@ def fetch(url: str) -> requests.Response | None:
         try:
             resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
+                # myneta.info doesn't reliably declare charset=utf-8 in its
+                # Content-Type header, so requests falls back to guessing —
+                # and per the HTTP spec, its fallback guess is Latin-1, not
+                # UTF-8. That silently mangled every non-breaking space
+                # (\xa0, used between "Rs" and the number) into "Ã‚Â" garbage,
+                # which then broke the loader's rupee-amount regex too
+                # (confirmed: total_assets_rupees came out NULL for every
+                # candidate as a result). Force UTF-8 explicitly rather than
+                # trusting requests' guess.
+                resp.encoding = "utf-8"
                 return resp
             print(f"  [warn] {resp.status_code} for {url} (attempt {attempt})")
         except requests.RequestException as e:
@@ -120,7 +130,7 @@ def fetch(url: str) -> requests.Response | None:
 # Step 1: enumerate candidate IDs for a state election
 # ---------------------------------------------------------------------------
 
-def discover_true_constituency_ids(yearkey: str, max_probe: int = 260) -> list[int]:
+def discover_true_constituency_ids(yearkey: str, max_probe: int = 340) -> list[int]:
     """
     Probe constituency_id=1..max_probe against the show_candidates
     endpoint directly — NOT show_constituencies&state_id, which was
