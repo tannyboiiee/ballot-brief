@@ -74,9 +74,9 @@ def candidate_to_insert_sql(c: dict) -> str:
     total_assets_rupees = parse_rupee_label(c.get("total_assets", ""))
     total_liabilities_rupees = parse_rupee_label(c.get("total_liabilities", ""))
 
-    # is_winner isn't something the current scraper extracts (MyNeta usually
-    # only marks this post-results) — default to 0/unknown rather than guess.
-    is_winner = 0
+    # Now populated for real by the scraper (detected from a "Winner" badge
+    # on the constituency listing page) — previously always hardcoded to 0.
+    is_winner = 1 if c.get("is_winner") else 0
 
     columns = [
         "candidate_id", "name", "is_winner", "party", "state", "constituency",
@@ -107,7 +107,15 @@ def candidate_to_insert_sql(c: dict) -> str:
 
     # INSERT OR IGNORE so re-running this file after a partial apply doesn't
     # error out on already-inserted candidate_ids.
-    return f"INSERT OR IGNORE INTO candidates ({col_str}) VALUES ({val_str});"
+    # OR REPLACE, not OR IGNORE: this loader needs to be safely re-runnable
+    # against updated source data (e.g. after a scraper bugfix like the
+    # is_winner detection fix), not just safe against re-running the SAME
+    # data twice. OR IGNORE silently skips any candidate_id already present
+    # — confirmed this caused a real bug: re-loading corrected data with
+    # is_winner now populated had zero effect on already-loaded candidates,
+    # since every candidate_id already existed from the prior (incorrect)
+    # load. OR REPLACE overwrites existing rows with the new values instead.
+    return f"INSERT OR REPLACE INTO candidates ({col_str}) VALUES ({val_str});"
 
 
 def pending_cases_to_insert_sql(candidate_id: str, cases: list) -> list[str]:
