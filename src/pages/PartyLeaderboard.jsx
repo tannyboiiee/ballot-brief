@@ -16,32 +16,42 @@ const sortHeadStyle = {
   textAlign: 'right',
 };
 
-// party-stats.js has `HAVING total >= 10` — it deliberately excludes parties
-// with fewer than 10 candidates, so this list will show noticeably fewer
-// than the dataset's full 68 parties. That's a backend filtering choice
-// (the project notes' "68 parties" / "Show all 68" expectation predates
-// this endpoint), not something to patch around in the frontend — if you
-// want a true full-68 leaderboard, that's a party-stats.js change (drop or
-// loosen the HAVING clause for this specific view).
-export default function PartyLeaderboard({ onSelectParty }) {
+// party-stats.js now filters on `HAVING seats_won >= 3` (was `total >= 10`
+// candidates fielded) — the case-rate percentage's real sample size is
+// seats won, not candidates fielded, so the "enough data to be meaningful"
+// threshold moved to match. This means the party list shown here can look
+// different from before even for the same election, and will look VERY
+// different across election types — Tamil Nadu's 234 seats are split much
+// more evenly across parties than Lok Sabha's national numbers, so expect
+// more parties to clear the bar there than you might expect from the LS view.
+//
+// electionType / state props: not yet wired to an actual scope-selector UI
+// (that doesn't exist yet) — default to Lok Sabha so the existing view keeps
+// working unchanged. Once a scope switcher exists, pass the selected scope
+// down as these two props and this component will fetch the right data.
+export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', state = null }) {
   const [parties, setParties] = useState([]);
   const [sort, setSort] = useState({ key: 'seatsWon', dir: -1 });
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    fetch('/api/party-stats')
+    const params = new URLSearchParams({ electionType });
+    if (state) params.set('state', state);
+
+    fetch(`/api/party-stats?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         const stats = (data.stats || []).map((s) => ({
           name: s.party,
           seatsWon: s.seatsWon,
-          candidateCount: s.total,
-          caseRate: s.total > 0 ? Math.round((s.withCases / s.total) * 100) : 0,
+          candidateCount: s.totalFielded,
+          winnersWithCases: s.winnersWithCases,
+          caseRate: s.caseRatePct,
         }));
         setParties(stats);
       })
       .catch(() => {});
-  }, []);
+  }, [electionType, state]);
 
   const toggleSort = (key) => {
     setSort((s) => ({ key, dir: s.key === key ? -s.dir : key === 'name' ? 1 : -1 }));
@@ -64,7 +74,8 @@ export default function PartyLeaderboard({ onSelectParty }) {
     <main style={{ maxWidth: LAYOUT_MAX_WIDTH.leaderboard, margin: '0 auto', padding: isMobile ? '20px 14px 60px' : '34px 28px 80px' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px', color: COLORS.ink }}>Parties</h1>
       <p style={{ fontSize: 14, color: COLORS.faint, margin: '0 0 22px' }}>
-        {parties.length} parties shown (10+ candidates) · sorted live. Click a column to re-sort.
+        {parties.length} parties shown (3+ seats won) · case rate is share of each party's actual winners with a
+        declared case, not their whole candidate pool · sorted live. Click a column to re-sort.
       </p>
 
       <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: 'hidden' }}>

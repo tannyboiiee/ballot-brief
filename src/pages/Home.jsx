@@ -9,7 +9,7 @@ const EXAMPLES = ['K Surendran', 'Kolhapur', 'BJP'];
 
 // Stat-strip numbers are hardcoded — there's no single endpoint that
 // returns total candidates/seats/parties across the whole dataset.
-// party-stats.js specifically excludes small parties (`HAVING total >= 10`),
+// party-stats.js specifically excludes small parties (`HAVING seats_won >= 3`),
 // so summing its response would undercount. These four figures are the
 // known fixed facts about this dataset (per the project notes) rather than
 // something derived live; update them here directly if the dataset changes.
@@ -23,14 +23,25 @@ export default function Home({ onSearch, onNavigateParties }) {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    fetch('/api/party-stats')
+    // CHANGELOG: party-stats.js's response shape changed — case rate is now
+    // computed among each party's WINNERS only (not their whole fielded
+    // candidate pool), and the field names changed to match: `total` ->
+    // `totalFielded`, `withCases` -> `winnersWithCases`, and the rate is now
+    // returned pre-computed as `caseRatePct` rather than needing to be
+    // derived here. This mapping previously still read the old field names,
+    // which no longer exist — every caseRate silently came out as 0 (NaN
+    // from dividing undefined/undefined, coerced to 0 on render) even
+    // though the underlying data was fine. PartyLeaderboard.jsx (the full
+    // /parties page) was updated already; this was the same bug living in
+    // a second, separate copy of the same fetch+map logic on the home page.
+    fetch('/api/party-stats?electionType=LS')
       .then((r) => r.json())
       .then((data) => {
         const stats = (data.stats || []).map((s) => ({
           name: s.party,
           seatsWon: s.seatsWon,
-          candidateCount: s.total,
-          caseRate: s.total > 0 ? Math.round((s.withCases / s.total) * 100) : 0,
+          candidateCount: s.totalFielded,
+          caseRate: s.caseRatePct,
         }));
         // party-stats.js itself sorts by case-rate descending; re-sort by
         // seats won for this "by seats won" section specifically.
@@ -216,9 +227,8 @@ export default function Home({ onSearch, onNavigateParties }) {
           ))}
         </div>
         <p style={{ fontSize: 12, color: COLORS.faintest, margin: '10px 2px 0' }}>
-          "Cases" = share of the party's candidates with at least one declared criminal case. Only parties with 10+
-          candidates are included (party-stats.js excludes smaller ones). Click a party to see its candidates, top
-          case-count first.
+          "Cases" = share of the party's actual WINNERS (3+ seats won) with at least one declared criminal case — not
+          their whole fielded candidate pool. Click a party to see its candidates, top case-count first.
         </p>
       </section>
     </main>
