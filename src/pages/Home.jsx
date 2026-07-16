@@ -5,7 +5,9 @@ import { RateChip, SpecialLegislationChip } from '../components/SeverityBadge';
 import PartyTile from '../components/PartyTile';
 import { useIsMobile } from '../lib/useIsMobile';
 
-const EXAMPLES = ['K Surendran', 'Kolhapur', 'BJP'];
+// Default matches the original hardcoded Lok Sabha examples — used as a
+// fallback if no examples prop is passed, so this never renders empty.
+const DEFAULT_EXAMPLES = ['K Surendran', 'Kolhapur', 'BJP'];
 
 // Stat-strip numbers are hardcoded — there's no single endpoint that
 // returns total candidates/seats/parties across the whole dataset.
@@ -17,7 +19,7 @@ const STATS = { candidates: '7,515', seats: 543, parties: 68, tiers: 2 };
 
 // `onSearch(query)` navigates to the Candidates view with the query applied.
 // `onNavigateParties()` navigates to the Parties view.
-export default function Home({ onSearch, onNavigateParties }) {
+export default function Home({ onSearch, onNavigateParties, electionType = 'LS', state = null, examples = DEFAULT_EXAMPLES }) {
   const [query, setQuery] = useState('');
   const [topParties, setTopParties] = useState([]);
   const isMobile = useIsMobile();
@@ -34,7 +36,10 @@ export default function Home({ onSearch, onNavigateParties }) {
     // though the underlying data was fine. PartyLeaderboard.jsx (the full
     // /parties page) was updated already; this was the same bug living in
     // a second, separate copy of the same fetch+map logic on the home page.
-    fetch('/api/party-stats?electionType=LS')
+    const params = new URLSearchParams({ electionType });
+    if (state) params.set('state', state);
+
+    fetch(`/api/party-stats?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         const stats = (data.stats || []).map((s) => ({
@@ -49,7 +54,7 @@ export default function Home({ onSearch, onNavigateParties }) {
         setTopParties(bySeats);
       })
       .catch(() => {});
-  }, []);
+  }, [electionType, state]);
 
   const maxSeats = Math.max(1, ...topParties.map((p) => p.seatsWon || 0));
 
@@ -98,7 +103,7 @@ export default function Home({ onSearch, onNavigateParties }) {
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 13, alignItems: 'center' }}>
           <span style={{ fontSize: 12.5, color: COLORS.faint2 }}>Try</span>
-          {EXAMPLES.map((ex) => (
+          {examples.map((ex) => (
             <button key={ex} onClick={() => onSearch(ex)} style={{ fontSize: 12.5, color: COLORS.ink3, background: COLORS.divider, border: '1px solid #e6e7ea', borderRadius: 20, padding: '4px 11px' }}>
               {ex}
             </button>

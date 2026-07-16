@@ -1,9 +1,12 @@
 import { COLORS, FONT_MONO, LAYOUT_MAX_WIDTH } from '../lib/designTokens';
 import { useIsMobile } from '../lib/useIsMobile';
+import ScopeSelector from './ScopeSelector';
 
 // Sticky global header. `active` is 'home' | 'candidates' | 'parties'.
 // `onNavigate(view)` should drive whatever routing/state switch the app uses.
-export default function Header({ active, onNavigate }) {
+// `scope`/`onScopeChange` drive the election-scope dropdown (Lok Sabha vs a
+// given state assembly) — see lib/scopes.js for the available options.
+export default function Header({ active, onNavigate, scope, onScopeChange }) {
   const isMobile = useIsMobile();
 
   const navItem = (view, label) => {
@@ -50,32 +53,35 @@ export default function Header({ active, onNavigate }) {
           gap: isMobile ? 6 : 24,
         }}
       >
-        <button onClick={() => onNavigate('home')} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 11, flexShrink: 0 }}>
-          <span
-            style={{
-              width: isMobile ? 22 : 28,
-              height: isMobile ? 22 : 28,
-              borderRadius: 7,
-              background: COLORS.ink,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ width: isMobile ? 8 : 11, height: isMobile ? 8 : 11, borderRadius: 2, border: `2.5px solid ${COLORS.pageBg}` }} />
-          </span>
-          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.05 }}>
-            <span style={{ fontWeight: 700, fontSize: isMobile ? 13 : 15, letterSpacing: '-0.01em', color: COLORS.ink, whiteSpace: 'nowrap' }}>
-              Ballot Brief
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 11, flexShrink: 0 }}>
+          <button onClick={() => onNavigate('home')} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 11 }}>
+            <span
+              style={{
+                width: isMobile ? 22 : 28,
+                height: isMobile ? 22 : 28,
+                borderRadius: 7,
+                background: COLORS.ink,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ width: isMobile ? 8 : 11, height: isMobile ? 8 : 11, borderRadius: 2, border: `2.5px solid ${COLORS.pageBg}` }} />
             </span>
-            {!isMobile && (
-              <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLORS.faint, letterSpacing: '0.04em' }}>
-                LOK SABHA 2024
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.05 }}>
+              <span style={{ fontWeight: 700, fontSize: isMobile ? 13 : 15, letterSpacing: '-0.01em', color: COLORS.ink, whiteSpace: 'nowrap' }}>
+                Ballot Brief
               </span>
-            )}
-          </span>
-        </button>
+            </span>
+          </button>
+          {/* CHANGELOG: this used to be static "LOK SABHA 2024" text under
+              the logo. Now a real dropdown (ScopeSelector) driving which
+              election's data every page fetches — see lib/scopes.js for
+              the registry of available scopes and App.jsx for where the
+              selected scope is held as state and passed down. */}
+          {!isMobile && <ScopeSelector scope={scope} onChange={onScopeChange} />}
+        </div>
         <nav style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 4, flexShrink: 1, minWidth: 0 }}>
           {navItem('home', isMobile ? 'Home' : 'Overview')}
           {navItem('candidates', isMobile ? 'Search' : 'Candidates')}
