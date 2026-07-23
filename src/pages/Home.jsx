@@ -9,20 +9,39 @@ import { useIsMobile } from '../lib/useIsMobile';
 // fallback if no examples prop is passed, so this never renders empty.
 const DEFAULT_EXAMPLES = ['K Surendran', 'Kolhapur', 'BJP'];
 
-// Stat-strip numbers are hardcoded — there's no single endpoint that
-// returns total candidates/seats/parties across the whole dataset.
-// party-stats.js specifically excludes small parties (`HAVING seats_won >= 3`),
-// so summing its response would undercount. These four figures are the
-// known fixed facts about this dataset (per the project notes) rather than
-// something derived live; update them here directly if the dataset changes.
-const STATS = { candidates: '7,515', seats: 543, parties: 68, tiers: 2 };
+// Default shown only until the live /api/stats fetch below resolves (or if
+// it fails) — these are the known Lok Sabha figures, so first paint doesn't
+// flash "0 candidates" while the request is in flight. Once /api/stats
+// responds, the real numbers for whatever scope is selected take over.
+// Severity tiers is NOT part of that fetch — it's a fixed classification
+// constant from classification.js (Grave/Serious), not something that
+// varies by election scope, so it stays hardcoded here regardless of scope.
+const DEFAULT_STATS = { candidates: '7,515', seats: 543, parties: 68 };
+const SEVERITY_TIERS = 2;
 
 // `onSearch(query)` navigates to the Candidates view with the query applied.
 // `onNavigateParties()` navigates to the Parties view.
 export default function Home({ onSearch, onNavigateParties, electionType = 'LS', state = null, examples = DEFAULT_EXAMPLES }) {
   const [query, setQuery] = useState('');
   const [topParties, setTopParties] = useState([]);
+  const [stats, setStats] = useState(DEFAULT_STATS);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    const params = new URLSearchParams({ electionType });
+    if (state) params.set('state', state);
+
+    fetch(`/api/stats?${params.toString()}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setStats({
+          candidates: (data.candidates ?? 0).toLocaleString(),
+          seats: data.seats ?? 0,
+          parties: data.parties ?? 0,
+        });
+      })
+      .catch(() => {});
+  }, [electionType, state]);
 
   useEffect(() => {
     const params = new URLSearchParams({ electionType });
@@ -115,10 +134,10 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
         }}
       >
         {[
-          { value: STATS.candidates, label: 'candidates' },
-          { value: STATS.seats, label: 'seats' },
-          { value: STATS.parties, label: 'parties' },
-          { value: STATS.tiers, label: 'severity tiers' },
+          { value: stats.candidates, label: 'candidates' },
+          { value: stats.seats, label: 'seats' },
+          { value: stats.parties, label: 'parties' },
+          { value: SEVERITY_TIERS, label: 'severity tiers' },
         ].map((st) => (
           <div key={st.label} style={{ background: COLORS.surface, padding: isMobile ? '12px 8px' : '20px 22px', minWidth: 0 }}>
             <div style={{ fontFamily: FONT_MONO, fontSize: isMobile ? 19 : 27, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.value}</div>
