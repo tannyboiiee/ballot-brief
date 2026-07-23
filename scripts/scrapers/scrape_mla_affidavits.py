@@ -92,6 +92,10 @@ class Candidate:
     age: str = ""
     source_url: str = ""
     photo_url: str = ""
+    is_winner: bool = False    # UNVERIFIED against live HTML — inferred from a "Winner" badge
+                                # observed in a screenshot of the constituency listing page
+                                # (green text next to the candidate name). Run --test-one against
+                                # a candidate_id known to have won before trusting this field.
     pending_cases: list = field(default_factory=list)      # list of dicts, maps to pending_cases table
     convicted_cases: list = field(default_factory=list)    # list of dicts, maps to convicted_cases table
     ipc_bns_charges: list = field(default_factory=list)    # list of dicts, maps to ipc_bns_charges table
@@ -184,12 +188,17 @@ def extract_total_pages(html: str) -> int | None:
     return None
 
 
-def parse_constituency_listing_page(html: str, seen_ids: set) -> list[tuple[str, str]]:
+def parse_constituency_listing_page(html: str, seen_ids: set) -> list[tuple[str, str, bool]]:
     """Parse one page of a constituency's candidate listing table. Returns
-    new (candidate_id, constituency_hint) tuples not already in seen_ids.
-    Table columns confirmed via real fetch of Bodinayakkanur: Sno |
+    new (candidate_id, constituency_hint, is_winner) tuples not already in
+    seen_ids. Table columns confirmed via real fetch of Bodinayakkanur: Sno |
     Candidate | Party | Criminal Cases | Education | Age | Total Assets |
-    Liabilities — candidate name+link lives in cells[1]."""
+    Liabilities — candidate name+link lives in cells[1].
+
+    is_winner: UNVERIFIED against live HTML — based on a screenshot showing
+    green "Winner" text next to the candidate's name in this same cell.
+    Detected here via a case-insensitive text search within cells[1]. Needs
+    confirmation via --test-one against a known winner before trusting it."""
     soup = BeautifulSoup(html, "lxml")
     new_rows = []
     for tr in soup.find_all("tr"):
@@ -206,7 +215,8 @@ def parse_constituency_listing_page(html: str, seen_ids: set) -> list[tuple[str,
         if cid in seen_ids:
             continue
         seen_ids.add(cid)
-        new_rows.append((cid, ""))  # constituency name comes from the candidate page itself
+        is_winner = bool(re.search(r"\bWinner\b", cells[1].get_text(" ", strip=True), re.I))
+        new_rows.append((cid, "", is_winner))  # constituency name comes from the candidate page itself
     return new_rows
 
 
@@ -351,7 +361,7 @@ def fix_known_typos(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_candidate_page(html: str, raw_id: str, yearkey: str, state: str, url: str,
-                          constituency_hint: str = "") -> Candidate:
+                          constituency_hint: str = "", is_winner: bool = False) -> Candidate:
     soup = BeautifulSoup(html, "lxml")
 
     namespaced_id = f"{yearkey}-{raw_id}"
@@ -360,7 +370,7 @@ def parse_candidate_page(html: str, raw_id: str, yearkey: str, state: str, url: 
 
     c = Candidate(candidate_id=namespaced_id, raw_myneta_id=raw_id, yearkey=yearkey, state=state,
                   election_type="MLA", election_year=election_year,
-                  source_url=url, constituency=constituency_hint)
+                  source_url=url, constituency=constituency_hint, is_winner=is_winner)
 
     # Flattened, whitespace-normalized full page text. Verified against a real
     # candidate page — MyNeta's fields here are inline text ("Age: 45",
@@ -541,10 +551,10 @@ def scrape_state(yearkey: str):
     # parse_candidate_page() constructs. Comparing raw against namespaced
     # directly always fails, which silently broke resume — every run
     # re-fetched everything regardless of what was already checkpointed.
-    todo = [(cid, con) for cid, con in candidate_refs if f"{yearkey}-{cid}" not in existing]
+    todo = [(cid, con, w) for cid, con, w in candidate_refs if f"{yearkey}-{cid}" not in existing]
     print(f"[fetch] {len(todo)} candidates to fetch ({len(existing)} skipped as already done)")
 
-    for i, (cid, constituency) in enumerate(todo, 1):
+    for i, (cid, constituency, is_winner) in enumerate(todo, 1):
         url = f"{BASE_URL}/{yearkey}/candidate.php?candidate_id={cid}"
         print(f"[{i}/{len(todo)}] fetching candidate {cid}")
         resp = fetch(url)
@@ -552,7 +562,7 @@ def scrape_state(yearkey: str):
             continue
 
         candidate = parse_candidate_page(resp.text, cid, yearkey, state, url,
-                                          constituency_hint=constituency)
+                                          constituency_hint=constituency, is_winner=is_winner)
         results.append(candidate)
 
         # checkpoint every 50 candidates in case of interruption
@@ -593,7 +603,12 @@ def _write_outputs(results: list[Candidate], out_csv: Path, out_json: Path):
 
 def test_one(yearkey: str, candidate_id: str):
     """Fetch and parse a single candidate page, print result. Run this
-    first to sanity-check the selectors against the live site."""
+    first to sanity-check the selectors against the live site.
+
+    NOTE: is_winner will always show false here — that field is detected
+    from the "Winner" badge on the constituency LISTING page, not the
+    individual candidate page this function fetches directly. Use
+    --list-only or a real scrape to see is_winner actually populated."""
     url = f"{BASE_URL}/{yearkey}/candidate.php?candidate_id={candidate_id}"
     print(f"Fetching {url} ...")
     resp = fetch(url)
@@ -603,6 +618,8 @@ def test_one(yearkey: str, candidate_id: str):
     c = parse_candidate_page(resp.text, candidate_id, yearkey,
                               STATE_YEARKEYS[yearkey]["state"], url)
     print(json.dumps(asdict(c), indent=2, ensure_ascii=False))
+    print("\nNote: is_winner is always false from --test-one (see docstring above) — "
+          "not a real signal here.")
     print("\nIf name/party/assets/criminal fields above look empty or wrong,")
     print("inspect the actual page HTML and adjust parse_candidate_page().")
 
@@ -637,7 +654,10 @@ def main():
         if expected:
             print(f"[list-only] Sanity check: {expected} seats, so expect roughly "
                   f"{expected * 5}-{expected * 15} candidates.")
-        print(f"[list-only] Sample candidate_ids: {[c for c, _ in candidate_refs[:10]]}")
+        winner_count = sum(1 for _, _, w in candidate_refs if w)
+        print(f"[list-only] Sample candidate_ids: {[c for c, _, _ in candidate_refs[:10]]}")
+        print(f"[list-only] Candidates flagged as winners: {winner_count} "
+              f"(sanity check — should be close to the seat count above, not 0)")
         return
 
     if args.all:
