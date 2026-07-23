@@ -25,17 +25,6 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    // CHANGELOG: party-stats.js's response shape changed — case rate is now
-    // computed among each party's WINNERS only (not their whole fielded
-    // candidate pool), and the field names changed to match: `total` ->
-    // `totalFielded`, `withCases` -> `winnersWithCases`, and the rate is now
-    // returned pre-computed as `caseRatePct` rather than needing to be
-    // derived here. This mapping previously still read the old field names,
-    // which no longer exist — every caseRate silently came out as 0 (NaN
-    // from dividing undefined/undefined, coerced to 0 on render) even
-    // though the underlying data was fine. PartyLeaderboard.jsx (the full
-    // /parties page) was updated already; this was the same bug living in
-    // a second, separate copy of the same fetch+map logic on the home page.
     const params = new URLSearchParams({ electionType });
     if (state) params.set('state', state);
 
@@ -46,6 +35,7 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
           name: s.party,
           seatsWon: s.seatsWon,
           candidateCount: s.totalFielded,
+          winnersWithCases: s.winnersWithCases,
           caseRate: s.caseRatePct,
         }));
         // party-stats.js itself sorts by case-rate descending; re-sort by
@@ -181,6 +171,45 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
           </button>
         </div>
         <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 13, overflow: 'hidden' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '32px minmax(0, 1fr) 64px' : '30px 38px minmax(0, 1fr) 90px 176px',
+              alignItems: 'center',
+              gap: isMobile ? 10 : 20,
+              padding: isMobile ? '9px 14px' : '10px 18px',
+              borderBottom: `1px solid ${COLORS.border}`,
+              background: COLORS.pageBg,
+            }}
+          >
+            {isMobile ? (
+              <>
+                <span style={{ gridColumn: '1 / span 2', fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.07em', color: COLORS.faint, textTransform: 'uppercase', textAlign: 'left' }}>Party</span>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '0.07em', color: COLORS.faint, textTransform: 'uppercase', textAlign: 'left' }}>Cases</span>
+              </>
+            ) : (
+              <>
+                {/* CHANGELOG (alignment fix): this used to be a single "Party"
+                    label spanning columns 1-3 with textAlign:'left', which
+                    put its text flush at the very left edge of column 1 (the
+                    30px rank-number slot) — but the rank number itself
+                    ("1", "2"...) is right-aligned WITHIN that same 30px
+                    column, so it visually sat to the right of where "Party"
+                    started. Fixed by giving the header row the same
+                    per-column structure as the data rows below it: an empty
+                    placeholder for column 1 (rank number has no header
+                    label, same convention the real /parties page already
+                    uses), then "Party" starting at column 2 — which is
+                    exactly where the party tile/name block starts in every
+                    row, so the header now sits directly above the content
+                    it's labeling instead of floating to its left. */}
+                <span />
+                <span style={{ gridColumn: '2 / span 2', fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.08em', color: COLORS.faint, textTransform: 'uppercase', textAlign: 'left' }}>Party</span>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.08em', color: COLORS.faint, textTransform: 'uppercase', textAlign: 'left' }}>Seats won</span>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.08em', color: COLORS.faint, textTransform: 'uppercase', textAlign: 'right', paddingRight: 14 }}>Case rate</span>
+              </>
+            )}
+          </div>
           {topParties.map((p, i) => (
             <button
               key={p.name}
@@ -189,9 +218,9 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
               style={{
                 width: '100%',
                 display: 'grid',
-                gridTemplateColumns: isMobile ? '32px minmax(0, 1fr) 64px' : '30px 38px minmax(0, 1fr) 116px 132px',
+                gridTemplateColumns: isMobile ? '32px minmax(0, 1fr) 64px' : '30px 38px minmax(0, 1fr) 90px 176px',
                 alignItems: 'center',
-                gap: isMobile ? 10 : 14,
+                gap: isMobile ? 10 : 20,
                 padding: isMobile ? '10px 14px' : '11px 18px',
                 borderBottom: `1px solid ${COLORS.divider}`,
                 textAlign: 'left',
@@ -207,7 +236,7 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
                     <span style={{ display: 'block', fontWeight: 500, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.ink }}>
                       {p.name}
                     </span>
-                    <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.faint2 }}>{p.seatsWon} seats</span>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.faint2 }}>{p.winnersWithCases}/{p.seatsWon} winners with cases</span>
                   </span>
                   <RateChip ratePct={p.caseRate} />
                 </>
@@ -222,8 +251,8 @@ export default function Home({ onSearch, onNavigateParties, electionType = 'LS',
                     </span>
                     <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 600, width: 30, textAlign: 'right' }}>{p.seatsWon}</span>
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                    <span style={{ fontSize: 11.5, color: COLORS.faint2 }}>cases</span>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, paddingRight: 14 }}>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLORS.faint2 }}>{p.winnersWithCases}/{p.seatsWon}</span>
                     <RateChip ratePct={p.caseRate} />
                   </span>
                 </>

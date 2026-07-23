@@ -13,7 +13,7 @@ const sortHeadStyle = {
   textTransform: 'uppercase',
   color: COLORS.faint,
   fontWeight: 600,
-  textAlign: 'right',
+  textAlign: 'left',
 };
 
 // party-stats.js now filters on `HAVING seats_won >= 3` (was `total >= 10`
@@ -71,7 +71,7 @@ export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', s
   const maxSeats = Math.max(1, ...parties.map((p) => p.seatsWon || 0));
 
   return (
-    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.leaderboard, margin: '0 auto', padding: isMobile ? '20px 14px 60px' : '34px 28px 80px' }}>
+    <main style={{ maxWidth: LAYOUT_MAX_WIDTH.header, margin: '0 auto', padding: isMobile ? '20px 14px 60px' : '34px 28px 80px' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px', color: COLORS.ink }}>Parties</h1>
       <p style={{ fontSize: 14, color: COLORS.faint, margin: '0 0 22px' }}>
         {parties.length} parties shown (3+ seats won) · case rate is share of each party's actual winners with a
@@ -82,14 +82,26 @@ export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', s
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '36px minmax(0, 1fr) 56px' : '44px minmax(0, 1fr) 160px 130px 150px',
+            gridTemplateColumns: isMobile ? '36px minmax(0, 1fr) 56px' : '44px minmax(0, 1fr) 145px 130px 120px',
             alignItems: 'center',
-            gap: isMobile ? 10 : 14,
+            gap: isMobile ? 10 : 20,
             padding: isMobile ? '10px 14px' : '12px 20px',
             borderBottom: `1px solid ${COLORS.border}`,
             background: '#fbfbfc',
           }}
         >
+          {/* CHANGELOG (alignment consistency with Home.jsx): "Party" used to
+              span columns 1-2 (tile + name) as one sort button with
+              textAlign:'left', which put its text flush at the left edge of
+              column 1 (the 44px tile slot) — same underlying pattern that
+              needed fixing on the home page's "Criminals in parties by seats
+              won" widget, even though here it happened to look OK visually
+              since there's no separate rank-number column ahead of the tile
+              to throw things off. Restructured to match Home.jsx's fixed
+              pattern anyway, for consistency: an empty placeholder for the
+              tile column, then "Party" as its own sort button starting
+              exactly at column 2, directly above where each row's party
+              name text begins. */}
           <span />
           <button onClick={() => toggleSort('name')} style={{ ...sortHeadStyle, textAlign: 'left' }}>
             Party {arrow('name')}
@@ -103,10 +115,10 @@ export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', s
               <button onClick={() => toggleSort('seatsWon')} style={sortHeadStyle}>
                 Seats won {arrow('seatsWon')}
               </button>
-              <button onClick={() => toggleSort('candidateCount')} style={sortHeadStyle}>
-                Candidates {arrow('candidateCount')}
+              <button onClick={() => toggleSort('candidateCount')} style={{ ...sortHeadStyle, paddingLeft: 60 }}>
+                Fielded {arrow('candidateCount')}
               </button>
-              <button onClick={() => toggleSort('caseRate')} style={sortHeadStyle}>
+              <button onClick={() => toggleSort('caseRate')} style={{ ...sortHeadStyle, textAlign: 'right' }}>
                 Case rate {arrow('caseRate')}
               </button>
             </>
@@ -121,9 +133,9 @@ export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', s
             style={{
               width: '100%',
               display: 'grid',
-              gridTemplateColumns: isMobile ? '36px minmax(0, 1fr) 56px' : '44px minmax(0, 1fr) 160px 130px 150px',
+              gridTemplateColumns: isMobile ? '36px minmax(0, 1fr) 56px' : '44px minmax(0, 1fr) 145px 130px 120px',
               alignItems: 'center',
-              gap: isMobile ? 10 : 14,
+              gap: isMobile ? 10 : 20,
               padding: isMobile ? '10px 14px' : '12px 20px',
               borderBottom: `1px solid ${COLORS.divider2}`,
               textAlign: 'left',
@@ -140,7 +152,7 @@ export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', s
                     {p.name}
                   </span>
                   <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.faintest2 }}>
-                    {p.seatsWon} seats · {p.candidateCount} candidates
+                    {p.winnersWithCases}/{p.seatsWon} winners with cases
                   </span>
                 </span>
                 <RateChip ratePct={p.caseRate} />
@@ -159,8 +171,11 @@ export default function PartyLeaderboard({ onSelectParty, electionType = 'LS', s
                   </span>
                   <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 600, width: 28, textAlign: 'right' }}>{p.seatsWon}</span>
                 </span>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.ink3, textAlign: 'right', paddingRight: 34 }}>{p.candidateCount}</span>
-                <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.ink3, textAlign: 'left', paddingLeft: 60 }}>{p.candidateCount}</span>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 7 }}>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLORS.faintest2 }}>
+                    {p.winnersWithCases}/{p.seatsWon}
+                  </span>
                   <RateChip ratePct={p.caseRate} />
                 </span>
               </>
