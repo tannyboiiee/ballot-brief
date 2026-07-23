@@ -79,8 +79,15 @@ export default function Header({ active, onNavigate, scope, onScopeChange }) {
               the logo. Now a real dropdown (ScopeSelector) driving which
               election's data every page fetches — see lib/scopes.js for
               the registry of available scopes and App.jsx for where the
-              selected scope is held as state and passed down. */}
-          {!isMobile && <ScopeSelector scope={scope} onChange={onScopeChange} />}
+              selected scope is held as state and passed down.
+              Renders inline beside the wordmark on every breakpoint,
+              including mobile — a two-row layout (scope selector on its
+              own line below) was tried first but looked wrong in
+              practice, so this went back to sitting beside "Ballot
+              Brief" like desktop. If this ever visibly crowds the nav
+              on a narrow phone, the fix is a shorter shortLabel per
+              scope in lib/scopes.js, not re-adding a second row. */}
+          <ScopeSelector scope={scope} onChange={onScopeChange} />
         </div>
         <nav style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 4, flexShrink: 1, minWidth: 0 }}>
           {navItem('home', isMobile ? 'Home' : 'Overview')}
